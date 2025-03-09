@@ -8,6 +8,7 @@ defmodule MCPheonix.MCP.Server do
   use GenServer
   require Logger
   alias MCPheonix.Events.Broker
+  alias MCPheonix.MCP.Features.{Resources, Tools}
 
   # Client API
 
@@ -78,7 +79,7 @@ defmodule MCPheonix.MCP.Server do
     Logger.debug("Handling MCP request from #{client_id}: #{inspect(request)}")
     
     # Process the JSON-RPC request
-    response = process_request(request, state.capabilities)
+    response = process_request(client_id, request, state.capabilities)
     
     # Publish request event to the event system
     Broker.publish("mcp:requests", %{
@@ -105,8 +106,17 @@ defmodule MCPheonix.MCP.Server do
   def handle_cast({:notify_client, client_id, notification}, state) do
     Logger.debug("Sending notification to client #{client_id}: #{inspect(notification)}")
     
-    # In a real implementation, this would send the notification over the client's SSE stream
+    # This would be implemented through the MCP.Connection process
+    # that manages the client's SSE stream
     # For now, we'll just log it
+    case Registry.lookup(MCPheonix.MCP.ConnectionRegistry, client_id) do
+      [{pid, _}] ->
+        # Send the notification to the client's connection process
+        MCPheonix.MCP.Connection.send_notification(client_id, notification)
+        
+      [] ->
+        Logger.warning("Attempted to notify unknown client: #{client_id}")
+    end
     
     {:noreply, state}
   end
@@ -132,38 +142,18 @@ defmodule MCPheonix.MCP.Server do
   # Private functions
 
   defp load_capabilities do
-    # In a real implementation, this would dynamically load available capabilities
-    # For now, return a static set of capabilities
+    # Load capabilities from the feature modules
     %{
-      resources: [
-        %{
-          name: "example_resource",
-          description: "An example resource"
-        }
-      ],
-      tools: [
-        %{
-          name: "example_tool",
-          description: "An example tool",
-          parameters: [
-            %{
-              name: "param1",
-              type: "string",
-              description: "An example parameter"
-            }
-          ]
-        }
-      ],
-      prompts: [
-        %{
-          name: "example_prompt",
-          description: "An example prompt"
-        }
-      ]
+      resources: Resources.list_resources(),
+      tools: Tools.list_tools(),
+      prompts: [] # Not implemented in this example
     }
   end
 
-  defp process_request(%{"jsonrpc" => "2.0", "method" => "initialize", "id" => id}, capabilities) do
+  # Handle different types of JSON-RPC requests
+  
+  # Initialize request
+  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "initialize", "id" => id}, capabilities) do
     # Handle initialize request
     %{
       jsonrpc: "2.0",
@@ -173,29 +163,108 @@ defmodule MCPheonix.MCP.Server do
       }
     }
   end
-
-  defp process_request(%{"jsonrpc" => "2.0", "method" => "invoke_tool", "params" => params, "id" => id}, _capabilities) do
+  
+  # Tool invocation
+  defp process_request(client_id, %{"jsonrpc" => "2.0", "method" => "invoke_tool", "params" => params, "id" => id}, _capabilities) do
     # Handle tool invocation
-    # In a real implementation, this would dispatch to the appropriate tool handler
+    tool_name = params["tool"]
+    tool_params = params["parameters"]
     
-    # Publish tool invocation event
-    Broker.publish("mcp:tool_invocations", %{
-      tool: params["tool"],
-      parameters: params["parameters"],
-      timestamp: DateTime.utc_now()
-    })
+    Logger.info("Client #{client_id} invoking tool: #{tool_name}")
     
-    %{
-      jsonrpc: "2.0",
-      id: id,
-      result: %{
-        status: "success",
-        message: "Tool invocation received"
-      }
-    }
+    # Call the tool handler
+    case Tools.execute_tool(tool_name, tool_params) do
+      {:ok, result} ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          result: result
+        }
+        
+      {:error, reason} ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          error: %{
+            code: -32000,
+            message: "Tool execution failed",
+            data: %{
+              reason: reason
+            }
+          }
+        }
+    end
   end
-
-  defp process_request(%{"jsonrpc" => "2.0", "method" => method, "id" => id}, _capabilities) do
+  
+  # Resource action
+  defp process_request(client_id, %{"jsonrpc" => "2.0", "method" => "resource_action", "params" => params, "id" => id}, _capabilities) do
+    # Handle resource action invocation
+    resource_name = params["resource"]
+    action_name = params["action"]
+    action_params = params["parameters"]
+    
+    Logger.info("Client #{client_id} invoking resource action: #{action_name} on #{resource_name}")
+    
+    # Call the resource handler
+    case Resources.execute_action(resource_name, action_name, action_params) do
+      {:ok, result} ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          result: result
+        }
+        
+      {:error, reason} ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          error: %{
+            code: -32000,
+            message: "Resource action failed",
+            data: %{
+              reason: reason
+            }
+          }
+        }
+    end
+  end
+  
+  # Resource subscription
+  defp process_request(client_id, %{"jsonrpc" => "2.0", "method" => "subscribe", "params" => params, "id" => id}, _capabilities) do
+    # Handle subscription request
+    resource_name = params["resource"]
+    
+    Logger.info("Client #{client_id} subscribing to resource: #{resource_name}")
+    
+    # Call the subscription handler
+    case Resources.subscribe(client_id, resource_name) do
+      :ok ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          result: %{
+            status: "subscribed",
+            resource: resource_name
+          }
+        }
+        
+      {:error, reason} ->
+        %{
+          jsonrpc: "2.0",
+          id: id,
+          error: %{
+            code: -32000,
+            message: "Subscription failed",
+            data: %{
+              reason: reason
+            }
+          }
+        }
+    end
+  end
+  
+  # Unknown method
+  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => method, "id" => id}, _capabilities) do
     # Handle unknown method
     %{
       jsonrpc: "2.0",
@@ -209,8 +278,9 @@ defmodule MCPheonix.MCP.Server do
       }
     }
   end
-
-  defp process_request(invalid_request, _capabilities) do
+  
+  # Invalid request
+  defp process_request(_client_id, invalid_request, _capabilities) do
     # Handle invalid JSON-RPC request
     %{
       jsonrpc: "2.0",
