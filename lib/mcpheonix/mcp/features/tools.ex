@@ -1,108 +1,113 @@
 defmodule MCPheonix.MCP.Features.Tools do
   @moduledoc """
-  MCP integration for tools.
+  Simple tool implementation for the MCP protocol.
   
-  This module provides functionality to expose system actions as tools through the MCP protocol,
-  allowing AI models to perform operations on the system.
+  This module provides functionality to expose tools through the MCP protocol,
+  allowing AI models to invoke operations in the application.
   """
   require Logger
-  alias MCPheonix.Events.Broker
-  alias MCPheonix.Cloud.DurableObjects.Client, as: DOClient
+  alias MCPheonix.MCP.FluxServer
 
   @doc """
-  Lists all available tools that can be called through MCP.
+  Lists all available tools that can be invoked through MCP.
   
   ## Returns
     * A list of tool definitions
   """
   def list_tools do
     [
-      # Message tools
       %{
-        name: "send_message",
-        description: "Send a message to a user",
+        name: "echo",
+        description: "Echo back the input",
         parameters: [
           %{
-            name: "user_id",
+            name: "message",
             type: "string",
-            description: "ID of the recipient user",
+            description: "Message to echo",
+            required: true
+          }
+        ]
+      },
+      %{
+        name: "timestamp",
+        description: "Get the current timestamp",
+        parameters: []
+      },
+      %{
+        name: "random_number",
+        description: "Generate a random number within a range",
+        parameters: [
+          %{
+            name: "min",
+            type: "integer",
+            description: "Minimum value (inclusive)",
             required: true
           },
           %{
-            name: "content",
-            type: "string",
-            description: "Content of the message",
+            name: "max",
+            type: "integer",
+            description: "Maximum value (inclusive)",
             required: true
           }
         ]
       },
-      
-      # User tools
       %{
-        name: "activate_user",
-        description: "Activate a user account",
+        name: "generate_image",
+        description: "Generate an image from a text prompt using the Flux server",
         parameters: [
           %{
-            name: "user_id",
+            name: "prompt",
             type: "string",
-            description: "ID of the user to activate",
+            description: "Text prompt for image generation",
             required: true
+          },
+          %{
+            name: "aspect_ratio",
+            type: "string",
+            description: "Aspect ratio of the output image (1:1, 4:3, 3:4, 16:9, 9:16)",
+            required: false
+          },
+          %{
+            name: "model",
+            type: "string",
+            description: "Model to use for generation (flux.1.1-pro, flux.1-pro, flux.1-dev, flux.1.1-ultra)",
+            required: false
+          },
+          %{
+            name: "output",
+            type: "string",
+            description: "Output filename",
+            required: false
           }
         ]
       },
       %{
-        name: "deactivate_user",
-        description: "Deactivate a user account",
+        name: "img2img",
+        description: "Generate an image using another image as reference",
         parameters: [
           %{
-            name: "user_id",
+            name: "image",
             type: "string",
-            description: "ID of the user to deactivate",
+            description: "Input image path",
             required: true
-          }
-        ]
-      },
-      
-      # Durable Objects tools
-      %{
-        name: "create_durable_object",
-        description: "Create a new Durable Object for state management",
-        parameters: [
+          },
+          %{
+            name: "prompt",
+            type: "string",
+            description: "Text prompt for generation",
+            required: true
+          },
           %{
             name: "name",
             type: "string",
-            description: "Name for the Durable Object",
+            description: "Name for the generation",
             required: true
           },
           %{
-            name: "initial_data",
-            type: "object",
-            description: "Initial data for the Durable Object",
-            required: true
-          }
-        ]
-      },
-      %{
-        name: "call_durable_object",
-        description: "Call a method on a Durable Object",
-        parameters: [
-          %{
-            name: "object_id",
-            type: "string",
-            description: "ID of the Durable Object",
-            required: true
-          },
-          %{
-            name: "method",
-            type: "string",
-            description: "Method to call on the Durable Object",
-            required: true
-          },
-          %{
-            name: "params",
-            type: "object",
-            description: "Parameters for the method call",
-            required: true
+            name: "strength",
+            type: "number",
+            description: "Generation strength",
+            required: false
           }
         ]
       }
@@ -118,179 +123,113 @@ defmodule MCPheonix.MCP.Features.Tools do
   
   ## Returns
     * `{:ok, result}` - The tool was executed successfully
-    * `{:error, reason}` - The tool execution failed
+    * `{:error, reason}` - The tool failed
   """
   def execute_tool(tool_name, params) do
     Logger.info("Executing tool: #{tool_name} with params: #{inspect(params)}")
     
-    # Execute the tool based on its name
     case tool_name do
-      "send_message" ->
-        send_message(params["user_id"], params["content"])
+      "echo" ->
+        message = params["message"]
         
-      "activate_user" ->
-        activate_user(params["user_id"])
+        if message do
+          {:ok, %{
+            echo: message,
+            timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+          }}
+        else
+          {:error, "Missing required parameter: message"}
+        end
         
-      "deactivate_user" ->
-        deactivate_user(params["user_id"])
+      "timestamp" ->
+        {:ok, %{
+          timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+        }}
         
-      "create_durable_object" ->
-        create_durable_object(params["name"], params["initial_data"])
+      "random_number" ->
+        min = parse_integer(params["min"])
+        max = parse_integer(params["max"])
         
-      "call_durable_object" ->
-        call_durable_object(params["object_id"], params["method"], params["params"])
+        cond do
+          is_nil(min) ->
+            {:error, "Missing or invalid parameter: min"}
+            
+          is_nil(max) ->
+            {:error, "Missing or invalid parameter: max"}
+            
+          min > max ->
+            {:error, "Min value must be less than or equal to max value"}
+            
+          true ->
+            random_number = :rand.uniform(max - min + 1) + min - 1
+            
+            {:ok, %{
+              number: random_number,
+              min: min,
+              max: max
+            }}
+        end
+        
+      "generate_image" ->
+        # Execute image generation via Flux server
+        execute_flux_tool("generate", params)
+        
+      "img2img" ->
+        # Execute image-to-image generation via Flux server
+        execute_flux_tool("img2img", params)
         
       _ ->
         {:error, "Unknown tool: #{tool_name}"}
     end
   end
 
-  # Tool implementations
+  # Private functions
 
-  defp send_message(user_id, content) do
-    try do
-      # Create a message using Ash
-      result = MCPheonix.Resources.Message.create_message(user_id, content)
-      
-      # Publish an event
-      Broker.publish("tools:message_sent", %{
-        user_id: user_id,
-        content: content,
-        timestamp: DateTime.utc_now()
-      })
-      
-      {:ok, %{
-        message_id: result.id,
-        status: "sent",
-        timestamp: DateTime.utc_now()
-      }}
-    rescue
-      e ->
-        Logger.error("Error sending message: #{inspect(e)}")
-        {:error, "Error sending message: #{Exception.message(e)}"}
+  defp parse_integer(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} -> int
+      _ -> nil
     end
   end
-
-  defp activate_user(user_id) do
-    try do
-      # Load the user
-      user = MCPheonix.Resources.User
-        |> Ash.get!(user_id)
-        
-      # Activate the user
-      result = user
-        |> Ash.Changeset.new()
-        |> Ash.Changeset.for_action(:activate)
-        |> Ash.update!()
-      
-      # Publish an event
-      Broker.publish("tools:user_activated", %{
-        user_id: user_id,
-        username: result.username,
-        timestamp: DateTime.utc_now()
-      })
-      
-      {:ok, %{
-        user_id: result.id,
-        username: result.username,
-        active: result.active,
-        timestamp: DateTime.utc_now()
-      }}
-    rescue
-      e ->
-        Logger.error("Error activating user: #{inspect(e)}")
-        {:error, "Error activating user: #{Exception.message(e)}"}
-    end
-  end
-
-  defp deactivate_user(user_id) do
-    try do
-      # Load the user
-      user = MCPheonix.Resources.User
-        |> Ash.get!(user_id)
-        
-      # Deactivate the user
-      result = user
-        |> Ash.Changeset.new()
-        |> Ash.Changeset.for_action(:deactivate)
-        |> Ash.update!()
-      
-      # Publish an event
-      Broker.publish("tools:user_deactivated", %{
-        user_id: user_id,
-        username: result.username,
-        timestamp: DateTime.utc_now()
-      })
-      
-      {:ok, %{
-        user_id: result.id,
-        username: result.username,
-        active: result.active,
-        timestamp: DateTime.utc_now()
-      }}
-    rescue
-      e ->
-        Logger.error("Error deactivating user: #{inspect(e)}")
-        {:error, "Error deactivating user: #{Exception.message(e)}"}
-    end
-  end
-
-  defp create_durable_object(name, initial_data) do
-    # Get Cloudflare Worker URL from config
-    worker_url = Application.get_env(:mcpheonix, :cloudflare_worker_url) ||
-                "https://example.cloudflare.workers.dev"
+  
+  defp parse_integer(value) when is_integer(value), do: value
+  defp parse_integer(_), do: nil
+  
+  defp execute_flux_tool(tool, params) do
+    Logger.info("Executing tool: #{tool} with params: #{inspect(params)}")
     
-    # Generate a unique ID for the Durable Object
-    object_id = "#{name}-#{:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)}"
-    
-    # Initialize the Durable Object
-    case DOClient.initialize(worker_url, object_id, initial_data) do
-      {:ok, response} ->
-        # Publish an event
-        Broker.publish("tools:durable_object_created", %{
-          object_id: object_id,
-          name: name,
-          timestamp: DateTime.utc_now()
-        })
-        
-        {:ok, %{
-          object_id: object_id,
-          name: name,
-          status: "created",
-          response: response,
-          timestamp: DateTime.utc_now()
-        }}
-        
+    try do
+      case GenServer.whereis(MCPheonix.MCP.FluxServer) do
+        nil ->
+          Logger.error("Flux server is not running")
+          {:error, "Flux server is not available"}
+          
+        _pid ->
+          # Increase timeout to 60 seconds (60_000 ms) to allow for longer image generation
+          case GenServer.call(MCPheonix.MCP.FluxServer, {:execute_tool, tool, params}, 60_000) do
+            {:ok, result} ->
+              # Successfully executed the tool, extract data from result
+              timestamp = Map.get(result, :timestamp, DateTime.utc_now() |> DateTime.to_iso8601())
+              filepath = Map.get(result, :filepath, nil)
+              output = Map.get(result, :output, nil)
+              
+              {:ok, %{
+                status: "success",
+                message: "Image generated successfully",
+                timestamp: timestamp,
+                filepath: filepath,
+                output: output
+              }}
+              
+            {:error, reason} ->
+              Logger.error("Flux server tool execution failed: #{inspect(reason)}")
+              {:error, "Flux server tool execution failed: #{inspect(reason)}"}
+          end
+      end
+    rescue
       error ->
-        error
-    end
-  end
-
-  defp call_durable_object(object_id, method, params) do
-    # Get Cloudflare Worker URL from config
-    worker_url = Application.get_env(:mcpheonix, :cloudflare_worker_url) ||
-                "https://example.cloudflare.workers.dev"
-    
-    # Call the method on the Durable Object
-    case DOClient.call_method(worker_url, object_id, method, params) do
-      {:ok, response} ->
-        # Publish an event
-        Broker.publish("tools:durable_object_method_called", %{
-          object_id: object_id,
-          method: method,
-          timestamp: DateTime.utc_now()
-        })
-        
-        {:ok, %{
-          object_id: object_id,
-          method: method,
-          status: "called",
-          response: response,
-          timestamp: DateTime.utc_now()
-        }}
-        
-      error ->
-        error
+        Logger.error("Error executing Flux tool: #{inspect(error)}")
+        {:error, "Flux server tool execution failed: #{inspect(error)}"}
     end
   end
 end 
