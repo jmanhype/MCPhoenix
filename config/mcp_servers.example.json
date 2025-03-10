@@ -1,0 +1,120 @@
+{
+  "mcpServers": {
+    "flux": {
+      "command": "/path/to/node",
+      "args": [
+        "/path/to/flux-server/build/index.js"
+      ],
+      "env": {
+        "FLUX_PATH": "/path/to/flux",
+        "BFL_API_KEY": "your-api-key-here",
+        "VIRTUAL_ENV": "/path/to/flux/.venv",
+        "PATH": "/path/to/flux/.venv/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "PYTHONPATH": "/path/to/flux"
+      },
+      "disabled": false,
+      "autoApprove": [],
+      "tools": {
+        "generate": {
+          "description": "Generate an image from a text prompt",
+          "parameters": [
+            {
+              "name": "prompt",
+              "type": "string",
+              "description": "Text prompt for image generation",
+              "required": true
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "string",
+              "description": "Aspect ratio of the output image (1:1, 4:3, 3:4, 16:9, 9:16)",
+              "required": false
+            },
+            {
+              "name": "model",
+              "type": "string",
+              "description": "Model to use for generation",
+              "required": false
+            },
+            {
+              "name": "output",
+              "type": "string",
+              "description": "Output filename",
+              "required": false
+            }
+          ]
+        },
+        "img2img": {
+          "description": "Generate an image using another image as reference",
+          "parameters": [
+            {
+              "name": "image",
+              "type": "string",
+              "description": "Input image path",
+              "required": true
+            },
+            {
+              "name": "prompt",
+              "type": "string",
+              "description": "Text prompt for generation",
+              "required": true
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "description": "Name for the generation",
+              "required": true
+            },
+            {
+              "name": "strength",
+              "type": "number",
+              "description": "Generation strength",
+              "required": false
+            }
+          ]
+        }
+      }
+    },
+    "dart": {
+      "command": "/path/to/python",
+      "args": [
+        "/path/to/dart_server.py"
+      ],
+      "env": {
+        "DART_TOKEN": "your-dart-token-here",
+        "PYTHONPATH": "/path/to/project"
+      },
+      "disabled": false,
+      "autoApprove": [],
+      "tools": {
+        "create_task": {
+          "description": "Create a new task in Dart",
+          "parameters": [
+            {
+              "name": "title",
+              "type": "string",
+              "description": "Task title",
+              "required": true
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "description": "Task description",
+              "required": true
+            },
+            {
+              "name": "dartboard_duid",
+              "type": "string",
+              "description": "Dartboard ID",
+              "required": true
+            }
+          ]
+        },
+        "get_default_space": {
+          "description": "Get the default space information",
+          "parameters": []
+        }
+      }
+    }
+  }
+} 
