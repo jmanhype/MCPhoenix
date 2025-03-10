@@ -4,7 +4,7 @@ A simplified implementation of the Model Context Protocol (MCP) server using Eli
 
 ## Overview
 
-MCPheonix provides a server that implements the Model Context Protocol, allowing AI models to interact with your application data and functionality. This implementation is designed to be simple and easy to understand, without heavy dependencies on frameworks like Ash.
+MCPheonix is an intelligent, self-healing, distributed AI event system using Model Context Protocol and Elixir's Phoenix Framework. It provides a server that implements the Model Context Protocol, allowing AI models to interact with your application data and functionality through a unified interface.
 
 ## Features
 
@@ -16,6 +16,22 @@ MCPheonix provides a server that implements the Model Context Protocol, allowing
 - Flux image generation integration
 - Dart task management integration
 - Extensible MCP server architecture
+- Self-healing distributed architecture via Cloudflare Durable Objects
+- Edge computing capabilities through Cloudflare Workers
+
+## Self-Healing Distributed Architecture
+
+MCPheonix implements a sophisticated self-healing system through its integration with Cloudflare Durable Objects and Workers, creating a distributed, resilient architecture that can withstand failures and ensure continuous operation.
+
+### Key Components
+
+- **Durable Objects**: Stateful serverless components running on Cloudflare's global edge network that maintain consistency even across failures.
+- **Edge Distribution**: Critical application state is replicated across Cloudflare's global network, ensuring availability even during regional outages.
+- **Automatic Recovery**: If an instance becomes unavailable, the system automatically recreates it with consistent state from durable storage.
+- **Real-time Communication**: WebSocket support enables instant recovery coordination and state synchronization across the distributed system.
+- **Event-Driven Architecture**: Components react to state changes through a publish/subscribe model, allowing the system to self-heal and adapt to failures.
+
+For detailed information on the implementation, see the [Cloudflare Integration](docs/cloudflare_integration.md) documentation.
 
 ## Getting Started
 
@@ -26,6 +42,7 @@ MCPheonix provides a server that implements the Model Context Protocol, allowing
 - Phoenix 1.7.0 or higher
 - Python 3.9+ (for Flux and Dart integration)
 - Node.js 18+ (for Dart MCP server)
+- Cloudflare account (for Durable Objects integration)
 
 ### Installation
 
@@ -40,13 +57,21 @@ cd mcpheonix
 mix deps.get
 ```
 
-3. Configure the Flux integration (if using image generation)
-   - Set up the Flux CLI environment as described in the [Flux Integration](#flux-integration) section
+3. Configure the Cloudflare integration
+   - Create a Cloudflare Worker using the template in `cloudflare/durable-objects-worker.js`
+   - Deploy it to your Cloudflare account
+   - Set the environment variables:
+     - `CLOUDFLARE_WORKER_URL`: URL of your deployed worker
+     - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare account ID
+     - `CLOUDFLARE_API_TOKEN`: API token with Workers and DO permissions
 
-4. Configure the Dart integration (if using task management)
-   - Set up the Dart MCP server as described in the [Dart Integration](#dart-integration) section
+4. Configure the Flux integration (if using image generation)
+   - Set up the Flux CLI environment as described in the [Flux Integration](docs/flux_integration.md) section
 
-5. Start the server
+5. Configure the Dart integration (if using task management)
+   - Set up the Dart MCP server as described in the [Dart Integration](docs/dart_integration.md) section
+
+6. Start the server
 ```bash
 mix phx.server
 ```
