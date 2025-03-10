@@ -40,6 +40,12 @@ if config_env() == :prod do
     account_id: System.get_env("CLOUDFLARE_ACCOUNT_ID"),
     api_token: System.get_env("CLOUDFLARE_API_TOKEN")
 
+  # Configure CloudflareDurable package 
+  config :cloudflare_durable,
+    worker_url: System.get_env("CLOUDFLARE_WORKER_URL"),
+    account_id: System.get_env("CLOUDFLARE_ACCOUNT_ID"),
+    api_token: System.get_env("CLOUDFLARE_API_TOKEN")
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key

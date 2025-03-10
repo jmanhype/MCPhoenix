@@ -20,4 +20,10 @@ config :phoenix, :plug_init_mode, :runtime
 config :mcpheonix, :cloudflare,
   worker_url: "http://mock-cloudflare-worker.test",
   account_id: "test_account_id",
-  api_token: "test_api_token" 
+  api_token: "test_api_token"
+
+# Configure CloudflareDurable package for testing
+config :cloudflare_durable,
+  worker_url: "http://mock-cloudflare-worker.test",
+  account_id: "test-account-id",
+  api_token: "test-api-token" 
