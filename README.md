@@ -87,7 +87,7 @@ MCPheonix includes integration with the Flux CLI for image generation. This allo
 
 1. Clone the Flux repository and set up the Python environment:
 ```bash
-git clone https://github.com/Cascade-AI/flux.git
+https://github.com/jmanhype/mcp-flux-studio
 cd flux
 python -m venv .venv
 source .venv/bin/activate
