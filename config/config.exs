@@ -8,6 +8,14 @@ config :logger, :console,
 # Use Jason for JSON parsing
 config :phoenix, :json_library, Jason
 
+# Configure esbuild
+config :esbuild, 
+  version: "0.17.11"
+
+# Configure tailwind
+config :tailwind,
+  version: "3.3.2"
+
 # MCPheonix MCP configuration
 config :mcpheonix, MCPheonix.MCP,
   protocol_version: "1.0",

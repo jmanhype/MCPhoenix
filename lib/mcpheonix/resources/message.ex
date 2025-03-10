@@ -4,99 +4,220 @@ defmodule MCPheonix.Resources.Message do
   
   This module defines the Message entity and its operations.
   """
-  use Ash.Resource,
-    data_layer: Ash.DataLayer.Ets,
-    extensions: [
-      AshJsonApi.Resource
-    ]
-    
-  attributes do
-    uuid_primary_key :id
-    
-    attribute :content, :string do
-      allow_nil? false
-      constraints [min_length: 1, max_length: 5000]
-    end
-    
-    attribute :created_at, :utc_datetime do
-      default &DateTime.utc_now/0
-      allow_nil? false
-    end
-    
-    attribute :updated_at, :utc_datetime do
-      default &DateTime.utc_now/0
-      allow_nil? false
-    end
-  end
+  require Logger
+  alias MCPheonix.Events.Broker
   
-  relationships do
-    belongs_to :user, MCPheonix.Resources.User do
-      allow_nil? false
-    end
-  end
+  @doc """
+  Message struct representing a user message.
+  """
+  defstruct [
+    :id,
+    :content,
+    :user_id,
+    :created_at,
+    :updated_at
+  ]
   
-  actions do
-    defaults [:create, :read, :update, :destroy]
-    
-    read :list do
-      primary? true
-      pagination [offset?: true, countable: true]
-      
-      filter expr(created_at > ^:created_after)
-      argument :created_after, :utc_datetime
-    end
-    
-    create :post do
-      accept [:content, :user_id]
-      
-      # Update timestamps
-      change set_attribute(:created_at, DateTime.utc_now())
-      change set_attribute(:updated_at, DateTime.utc_now())
-    end
-    
-    update :edit do
-      accept [:content]
-      
-      # Update updated_at timestamp
-      change set_attribute(:updated_at, DateTime.utc_now())
-    end
-  end
+  @type t :: %__MODULE__{
+    id: String.t(),
+    content: String.t(),
+    user_id: String.t(),
+    created_at: DateTime.t(),
+    updated_at: DateTime.t()
+  }
   
-  code_interface do
-    define :get_messages_for_user, args: [:user_id], action: :list
-    define :create_message, args: [:user_id, :content], action: :post
-  end
+  # In-memory storage for messages
+  @messages_table :messages_table
   
-  json_api do
-    type "message"
-    
-    routes do
-      base "/messages"
-      get :read
-      index :list
-      post :create
-      patch :update
-      delete :destroy
-    end
-  end
-  
-  identities do
-    identity :unique_id, [:id]
-  end
-  
-  # Add a notification for new messages
-  after_action :post, fn _result, changeset ->
-    # Publish an event when a message is created
-    message = Ash.Changeset.get_data(changeset)
-    
-    # This is where we'd notify MCP clients about new messages
-    MCPheonix.Events.Broker.publish("resources:message:created", %{
-      id: message.id,
-      user_id: message.user_id,
-      content: message.content,
-      timestamp: DateTime.utc_now()
-    })
-    
+  @doc """
+  Initializes the message storage.
+  """
+  def init do
+    :ets.new(@messages_table, [:set, :public, :named_table])
     :ok
+  end
+  
+  @doc """
+  Creates a new message.
+  
+  ## Parameters
+    * `user_id` - The ID of the user who created the message
+    * `content` - The content of the message
+  
+  ## Returns
+    * `{:ok, message}` - The message was created successfully
+    * `{:error, reason}` - The message creation failed
+  """
+  def create(user_id, content) when is_binary(user_id) and is_binary(content) do
+    # Validate content
+    if String.length(content) < 1 or String.length(content) > 5000 do
+      {:error, "Content must be between 1 and 5000 characters"}
+    else
+      # Create message
+      message = %__MODULE__{
+        id: UUID.uuid4(),
+        content: content,
+        user_id: user_id,
+        created_at: DateTime.utc_now(),
+        updated_at: DateTime.utc_now()
+      }
+      
+      # Store message
+      :ets.insert(@messages_table, {message.id, message})
+      
+      # Publish event
+      Broker.publish("resources:message:created", %{
+        id: message.id,
+        user_id: user_id,
+        content: content,
+        timestamp: DateTime.utc_now()
+      })
+      
+      {:ok, message}
+    end
+  end
+  
+  @doc """
+  Gets a message by ID.
+  
+  ## Parameters
+    * `id` - The ID of the message to get
+  
+  ## Returns
+    * `{:ok, message}` - The message was found
+    * `{:error, reason}` - The message was not found
+  """
+  def get(id) when is_binary(id) do
+    case :ets.lookup(@messages_table, id) do
+      [{^id, message}] -> {:ok, message}
+      [] -> {:error, "Message not found"}
+    end
+  end
+  
+  @doc """
+  Lists all messages.
+  
+  ## Parameters
+    * `opts` - Options for listing messages
+      * `:created_after` - Only return messages created after this datetime
+  
+  ## Returns
+    * List of messages
+  """
+  def list(opts \\ []) do
+    created_after = Keyword.get(opts, :created_after)
+    
+    # Get all messages
+    all_messages = :ets.tab2list(@messages_table)
+      |> Enum.map(fn {_id, message} -> message end)
+    
+    # Filter by created_after if specified
+    if created_after do
+      Enum.filter(all_messages, fn message ->
+        DateTime.compare(message.created_at, created_after) == :gt
+      end)
+    else
+      all_messages
+    end
+  end
+  
+  @doc """
+  Updates a message.
+  
+  ## Parameters
+    * `id` - The ID of the message to update
+    * `attrs` - The attributes to update
+  
+  ## Returns
+    * `{:ok, message}` - The message was updated successfully
+    * `{:error, reason}` - The message update failed
+  """
+  def update(id, attrs) when is_binary(id) and is_map(attrs) do
+    case get(id) do
+      {:ok, message} ->
+        # Update content if provided
+        content = Map.get(attrs, :content, message.content)
+        
+        # Validate content
+        if String.length(content) < 1 or String.length(content) > 5000 do
+          {:error, "Content must be between 1 and 5000 characters"}
+        else
+          # Create updated message
+          updated_message = %{message |
+            content: content,
+            updated_at: DateTime.utc_now()
+          }
+          
+          # Store updated message
+          :ets.insert(@messages_table, {id, updated_message})
+          
+          # Publish event
+          Broker.publish("resources:message:updated", %{
+            id: id,
+            content: content,
+            timestamp: DateTime.utc_now()
+          })
+          
+          {:ok, updated_message}
+        end
+        
+      error -> error
+    end
+  end
+  
+  @doc """
+  Resource name for MCP protocol.
+  """
+  def __resource_name__, do: "message"
+  
+  @doc """
+  Primary actions for MCP protocol.
+  """
+  def __primary_actions__ do
+    [
+      list: %{
+        name: :list,
+        arguments: [
+          created_after: %{
+            type: :utc_datetime,
+            allow_nil?: true
+          }
+        ],
+        accept: []
+      },
+      post: %{
+        name: :post,
+        arguments: [],
+        accept: [:content, :user_id]
+      },
+      read: %{
+        name: :read,
+        arguments: [
+          id: %{
+            type: :string,
+            allow_nil?: false
+          }
+        ],
+        accept: []
+      }
+    ]
+  end
+  
+  @doc """
+  All actions for MCP protocol.
+  """
+  def __actions__ do
+    [
+      edit: %{
+        name: :edit,
+        arguments: [
+          id: %{
+            type: :string,
+            allow_nil?: false
+          }
+        ],
+        accept: [:content]
+      }
+    ]
   end
 end 

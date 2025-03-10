@@ -6,7 +6,7 @@ defmodule MCPheonix.MCP.Connection do
   server-sent events (SSE) to connected clients.
   """
   require Logger
-  alias MCPheonix.MCP.SimpleServer
+  alias MCPheonix.MCP.{ServerManager, SimpleServer}
 
   @doc """
   Starts a new connection for a client.
@@ -93,9 +93,37 @@ defmodule MCPheonix.MCP.Connection do
         # Log the request
         Logger.debug("Parsed JSON-RPC request: #{inspect(request)}")
         
-        # Process the request
-        # Increase the timeout to 60 seconds to allow for long-running operations
-        response = SimpleServer.handle_request(client_id, request)
+        # Check if this is a tool execution request
+        response = case request do
+          %{"method" => "invoke_tool", "params" => %{"server_id" => server_id, "tool" => tool, "parameters" => params}} ->
+            # Route to the appropriate server via ServerManager
+            Logger.info("Routing tool execution to server #{server_id}: #{tool}")
+            case ServerManager.execute_tool(server_id, tool, params) do
+              {:ok, result} ->
+                %{
+                  jsonrpc: "2.0",
+                  id: request["id"],
+                  result: result
+                }
+              
+              {:error, reason} ->
+                %{
+                  jsonrpc: "2.0",
+                  id: request["id"],
+                  error: %{
+                    code: -32000,
+                    message: "Tool execution failed",
+                    data: %{
+                      reason: reason
+                    }
+                  }
+                }
+            end
+            
+          _ ->
+            # For other requests, use the SimpleServer
+            SimpleServer.handle_request(client_id, request)
+        end
         
         # Send the response back to the client
         {:ok, Jason.encode!(response)}

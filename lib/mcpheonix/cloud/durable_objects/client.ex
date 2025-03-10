@@ -4,6 +4,9 @@ defmodule MCPheonix.Cloud.DurableObjects.Client do
   
   This module provides functions for communicating with Cloudflare Workers and Durable Objects,
   allowing the MCPheonix system to leverage edge-located, stateful storage and processing.
+  
+  This is a wrapper around the CloudflareDurable package, adding MCPheonix-specific event
+  publishing and error handling.
   """
   require Logger
   alias MCPheonix.Events.Broker
@@ -23,8 +26,7 @@ defmodule MCPheonix.Cloud.DurableObjects.Client do
   def initialize(worker_url, object_id, data) do
     Logger.info("Initializing Durable Object: #{object_id}")
     
-    # Make HTTP request to Cloudflare Worker to initialize DO
-    case make_request(worker_url, "/initialize/#{object_id}", :post, Jason.encode!(data)) do
+    case CloudflareDurable.initialize(object_id, data, worker_url: worker_url) do
       {:ok, response} ->
         # Publish event
         Broker.publish("durable_objects:initialized", %{
@@ -57,11 +59,7 @@ defmodule MCPheonix.Cloud.DurableObjects.Client do
   def call_method(worker_url, object_id, method, params) do
     Logger.info("Calling method #{method} on Durable Object: #{object_id}")
     
-    # Make HTTP request to Cloudflare Worker to call method on DO
-    path = "/object/#{object_id}/#{method}"
-    body = Jason.encode!(params)
-    
-    case make_request(worker_url, path, :post, body) do
+    case CloudflareDurable.call_method(object_id, method, params, worker_url: worker_url) do
       {:ok, response} ->
         # Publish event
         Broker.publish("durable_objects:method_called", %{
@@ -94,37 +92,22 @@ defmodule MCPheonix.Cloud.DurableObjects.Client do
   def open_websocket(worker_url, object_id) do
     Logger.info("Opening WebSocket connection to Durable Object: #{object_id}")
     
-    # Replace http/https with ws/wss
-    ws_url = String.replace(worker_url, ~r/^http(s?):\/\//, "ws\\1://")
-    ws_url = "#{ws_url}/object/#{object_id}/websocket"
-    
-    # In a real implementation, this would establish a WebSocket connection
-    # using a WebSocket client like 'mint_web_socket'
-    # For now, we'll just simulate it
-    
-    # Publish event
-    Broker.publish("durable_objects:websocket_opened", %{
-      object_id: object_id,
-      url: ws_url,
-      timestamp: DateTime.utc_now()
-    })
-    
-    {:ok, %{url: ws_url, object_id: object_id}}
-  end
-
-  # Private functions
-
-  defp make_request(base_url, path, method, body) do
-    url = "#{base_url}#{path}"
-    
-    # In a real implementation, this would use Finch or another HTTP client
-    # to make the actual request to the Cloudflare Worker
-    # For now, we'll just simulate it
-    
-    Logger.debug("Making #{method} request to #{url}")
-    Logger.debug("Request body: #{body}")
-    
-    # Simulate successful request
-    {:ok, %{status: 200, body: ~s({"success": true, "message": "Simulated response"})}}
+    case CloudflareDurable.open_websocket(object_id, worker_url: worker_url) do
+      {:ok, socket} ->
+        # Publish event
+        Broker.publish("durable_objects:websocket_opened", %{
+          object_id: object_id,
+          timestamp: DateTime.utc_now()
+        })
+        
+        # Subscribe to messages
+        CloudflareDurable.WebSocket.Connection.subscribe(socket)
+        
+        {:ok, socket}
+        
+      {:error, reason} = error ->
+        Logger.error("Failed to open WebSocket connection to Durable Object: #{inspect(reason)}")
+        error
+    end
   end
 end 

@@ -110,7 +110,7 @@ defmodule MCPheonix.MCP.Server do
     # that manages the client's SSE stream
     # For now, we'll just log it
     case Registry.lookup(MCPheonix.MCP.ConnectionRegistry, client_id) do
-      [{pid, _}] ->
+      [{_pid, _}] ->
         # Send the notification to the client's connection process
         MCPheonix.MCP.Connection.send_notification(client_id, notification)
         

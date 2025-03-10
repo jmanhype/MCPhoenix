@@ -1,0 +1,40 @@
+== Info: Host localhost:4001 was resolved.
+== Info: IPv6: ::1
+== Info: IPv4: 127.0.0.1
+== Info:   Trying [::1]:4001...
+== Info: connect to ::1 port 4001 from ::1 port 52132 failed: Connection refused
+== Info:   Trying 127.0.0.1:4001...
+== Info: Connected to localhost (127.0.0.1) port 4001
+=> Send header, 137 bytes (0x89)
+0000: POST /mcp/rpc HTTP/1.1
+0018: Host: localhost:4001
+002e: User-Agent: curl/8.7.1
+0046: Accept: */*
+0053: Content-Type: application/json
+0073: Content-Length: 46
+0087: 
+=> Send data, 46 bytes (0x2e)
+0000: {"jsonrpc":"2.0","method":"initialize","id":1}
+== Info: upload completely sent off: 46 bytes
+<= Recv header, 26 bytes (0x1a)
+0000: HTTP/1.1 400 Bad Request
+<= Recv header, 52 bytes (0x34)
+0000: cache-control: max-age=0, private, must-revalidate
+<= Recv header, 21 bytes (0x15)
+0000: content-length: 108
+<= Recv header, 47 bytes (0x2f)
+0000: content-type: application/json; charset=utf-8
+<= Recv header, 37 bytes (0x25)
+0000: date: Sun, 09 Mar 2025 11:05:27 GMT
+<= Recv header, 16 bytes (0x10)
+0000: server: Cowboy
+<= Recv header, 55 bytes (0x37)
+0000: x-mcp-client-id: b96aef13-45bb-413d-af00-78906a92ed28
+<= Recv header, 36 bytes (0x24)
+0000: x-request-id: GCsdsSB-QJhuSzgAAAVj
+<= Recv header, 2 bytes (0x2)
+0000: 
+<= Recv data, 108 bytes (0x6c)
+0000: {"error":{"code":-32700,"data":{"reason":"Invalid JSON"},"messag
+0040: e":"Parse error"},"id":null,"jsonrpc":"2.0"}
+== Info: Connection #0 to host localhost left intact

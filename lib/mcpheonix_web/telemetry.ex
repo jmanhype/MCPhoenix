@@ -76,21 +76,22 @@ defmodule MCPheonixWeb.Telemetry do
 
   defp periodic_measurements do
     [
-      # Custom periodic measurements
-      {MCPheonixWeb.Telemetry, :measure_mcp_clients, []}
+      # Only VM metrics for now
+      # A function returning the measurement
+      {__MODULE__, :vm_memory_measurement, []}
     ]
   end
 
   @doc """
-  Measures the number of connected MCP clients.
+  Reports VM memory usage.
   """
-  def measure_mcp_clients do
-    # Count the number of entries in the connection registry
-    count = Registry.count(MCPheonix.MCP.ConnectionRegistry)
+  def vm_memory_measurement do
+    memory = :erlang.memory()
+    total = memory[:total]
     
     :telemetry.execute(
-      [:mcpheonix, :mcp, :client_connections],
-      %{count: count},
+      [:vm, :memory],
+      %{total: total},
       %{}
     )
   end

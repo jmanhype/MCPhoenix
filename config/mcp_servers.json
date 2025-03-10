@@ -1,0 +1,79 @@
+{
+  "mcpServers": {
+    "flux": {
+      "command": "/opt/homebrew/bin/node",
+      "args": [
+        "/Users/speed/Documents/Cline/MCP/flux-server/build/index.js"
+      ],
+      "env": {
+        "FLUX_PATH": "/Users/speed/CascadeProjects/flux",
+        "BFL_API_KEY": "47932f45-9b3d-4283-b525-92cca5a54f28",
+        "VIRTUAL_ENV": "/Users/speed/CascadeProjects/flux/.venv",
+        "PATH": "/Users/speed/CascadeProjects/flux/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "PYTHONPATH": "/Users/speed/CascadeProjects/flux"
+      },
+      "disabled": false,
+      "autoApprove": [],
+      "tools": {
+        "generate": {
+          "description": "Generate an image from a text prompt",
+          "parameters": [
+            {
+              "name": "prompt",
+              "type": "string",
+              "description": "Text prompt for image generation",
+              "required": true
+            },
+            {
+              "name": "aspect_ratio",
+              "type": "string",
+              "description": "Aspect ratio of the output image (1:1, 4:3, 3:4, 16:9, 9:16)",
+              "required": false
+            },
+            {
+              "name": "model",
+              "type": "string",
+              "description": "Model to use for generation",
+              "required": false
+            },
+            {
+              "name": "output",
+              "type": "string",
+              "description": "Output filename",
+              "required": false
+            }
+          ]
+        },
+        "img2img": {
+          "description": "Generate an image using another image as reference",
+          "parameters": [
+            {
+              "name": "image",
+              "type": "string",
+              "description": "Input image path",
+              "required": true
+            },
+            {
+              "name": "prompt",
+              "type": "string",
+              "description": "Text prompt for generation",
+              "required": true
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "description": "Name for the generation",
+              "required": true
+            },
+            {
+              "name": "strength",
+              "type": "number",
+              "description": "Generation strength",
+              "required": false
+            }
+          ]
+        }
+      }
+    }
+  }
+} 

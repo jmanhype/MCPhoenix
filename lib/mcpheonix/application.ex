@@ -6,6 +6,8 @@ defmodule MCPheonix.Application do
   supervision tree and defines workers for handling events and MCP integration.
   """
   use Application
+  require Logger
+  alias MCPheonix.Resources.{User, Message}
 
   @impl true
   def start(_type, _args) do
@@ -16,10 +18,18 @@ defmodule MCPheonix.Application do
       {Phoenix.PubSub, name: MCPheonix.PubSub},
       # Start Finch for HTTP requests
       {Finch, name: MCPheonix.Finch},
-      # Start MCP server supervisor
-      MCPheonix.MCP.Supervisor,
       # Start the event broker
       MCPheonix.Events.Broker,
+      # ResourceInitializer to initialize ETS tables and sample data
+      {Task, &initialize_resources/0},
+      # Start the Resource Registry
+      MCPheonix.Resources.Registry,
+      # Start the MCP Simple Server - This is the server that actually handles requests
+      MCPheonix.MCP.SimpleServer,
+      # Start the MCP Server Manager
+      MCPheonix.MCP.ServerManager,
+      # Start the Connection Registry for MCP clients
+      {Registry, keys: :unique, name: MCPheonix.MCP.ConnectionRegistry},
       # Start the Endpoint (http/https)
       MCPheonixWeb.Endpoint
     ]
@@ -35,6 +45,42 @@ defmodule MCPheonix.Application do
   @impl true
   def config_change(changed, _new, removed) do
     MCPheonixWeb.Endpoint.config_change(changed, removed)
+    :ok
+  end
+  
+  # Initialize resources and create sample data
+  defp initialize_resources do
+    # Give the PubSub system time to start
+    Process.sleep(100)
+  
+    Logger.info("Initializing resources")
+    
+    # Initialize ETS tables
+    User.init()
+    Message.init()
+    
+    # Create sample users
+    {:ok, user1} = User.register(%{
+      username: "john_doe",
+      email: "john@example.com",
+      full_name: "John Doe",
+      password: "password123"
+    })
+    
+    {:ok, user2} = User.register(%{
+      username: "jane_smith",
+      email: "jane@example.com",
+      full_name: "Jane Smith",
+      password: "password456"
+    })
+    
+    # Create sample messages
+    Message.create(user1.id, "Hello, world! This is my first message.")
+    Message.create(user2.id, "Hi everyone! Nice to meet you all.")
+    Message.create(user1.id, "The weather is great today!")
+    
+    Logger.info("Sample data initialized")
+    
     :ok
   end
 end 

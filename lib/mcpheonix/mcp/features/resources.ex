@@ -1,13 +1,14 @@
 defmodule MCPheonix.MCP.Features.Resources do
   @moduledoc """
-  MCP integration for Ash resources.
+  Simplified MCP integration for resources.
   
-  This module provides functionality to expose Ash resources through the MCP protocol,
+  This module provides functionality to expose resources through the MCP protocol,
   allowing AI models to interact with the application's data.
   """
   require Logger
   alias MCPheonix.Resources.Registry, as: ResourceRegistry
   alias MCPheonix.Events.Broker
+  alias MCPheonix.Resources.{User, Message}
 
   @doc """
   Lists all available resources that can be accessed through MCP.
@@ -44,7 +45,7 @@ defmodule MCPheonix.MCP.Features.Resources do
   """
   def execute_action(resource_name, action_name, params) do
     # Find the resource module
-    resource_module = find_resource_module(resource_name)
+    resource_module = ResourceRegistry.find_by_name(resource_name)
     
     if resource_module do
       # Convert string keys to atoms (safely)
@@ -57,60 +58,44 @@ defmodule MCPheonix.MCP.Features.Resources do
         # Define how different actions are handled
         case {String.to_atom(action_name), resource_module} do
           # User actions
-          {:list, MCPheonix.Resources.User} ->
-            result = MCPheonix.Resources.User
-              |> Ash.Query.new()
-              |> Ash.Query.filter(expr(active == true))
-              |> Ash.read!()
-            
+          {:list, User} ->
+            active_only = Map.get(atom_params, :active_only, false)
+            result = User.list(active_only: active_only)
             {:ok, result}
             
-          {:read, MCPheonix.Resources.User} ->
-            result = MCPheonix.Resources.User
-              |> Ash.get!(atom_params[:id])
+          {:read, User} ->
+            result = User.get(atom_params.id)
+            result
             
-            {:ok, result}
+          {:register, User} ->
+            result = User.register(atom_params)
+            result
             
-          {:register, MCPheonix.Resources.User} ->
-            result = MCPheonix.Resources.User
-              |> Ash.Changeset.new()
-              |> Ash.Changeset.for_create(:register)
-              |> Ash.Changeset.set_arguments(atom_params)
-              |> Ash.create!()
+          {:activate, User} ->
+            result = User.activate(atom_params.id)
+            result
             
-            # Publish an event
-            Broker.publish("resources:user:registered", %{
-              id: result.id,
-              username: result.username,
-              timestamp: DateTime.utc_now()
-            })
-            
-            {:ok, result}
+          {:deactivate, User} ->
+            result = User.deactivate(atom_params.id)
+            result
             
           # Message actions
-          {:list, MCPheonix.Resources.Message} ->
-            result = MCPheonix.Resources.Message
-              |> Ash.Query.new()
-              |> Ash.Query.load(:user)
-              |> Ash.read!()
-            
+          {:list, Message} ->
+            created_after = Map.get(atom_params, :created_after)
+            result = Message.list(created_after: created_after)
             {:ok, result}
             
-          {:post, MCPheonix.Resources.Message} ->
-            result = MCPheonix.Resources.Message
-              |> Ash.Changeset.new()
-              |> Ash.Changeset.for_create(:post)
-              |> Ash.Changeset.set_arguments(atom_params)
-              |> Ash.create!()
+          {:post, Message} ->
+            result = Message.create(atom_params.user_id, atom_params.content)
+            result
             
-            {:ok, result}
+          {:read, Message} ->
+            result = Message.get(atom_params.id)
+            result
             
-          {:read, MCPheonix.Resources.Message} ->
-            result = MCPheonix.Resources.Message
-              |> Ash.get!(atom_params[:id])
-              |> Ash.load!(:user)
-            
-            {:ok, result}
+          {:edit, Message} ->
+            result = Message.update(atom_params.id, %{content: atom_params.content})
+            result
             
           # Default case - unsupported action
           _ ->
@@ -139,12 +124,12 @@ defmodule MCPheonix.MCP.Features.Resources do
   """
   def subscribe(client_id, resource_name) do
     # Find the resource module
-    resource_module = find_resource_module(resource_name)
+    resource_module = ResourceRegistry.find_by_name(resource_name)
     
     if resource_module do
-      # Set up subscription for client
-      # This is a simplified approach - in a real implementation, you would
-      # store subscription preferences and filter events accordingly
+      # Subscribe to resource events
+      topic = "resources:#{resource_name}:*"
+      Broker.subscribe(topic)
       
       Logger.info("Client #{client_id} subscribed to resource: #{resource_name}")
       
@@ -156,14 +141,6 @@ defmodule MCPheonix.MCP.Features.Resources do
   end
 
   # Private functions
-
-  defp find_resource_module(resource_name) do
-    # Find the resource module by name
-    ResourceRegistry.entries()
-    |> Enum.find(fn module ->
-      module.__resource_name__() == resource_name
-    end)
-  end
 
   defp get_resource_description(resource_module) do
     # Extract description from @moduledoc
@@ -183,16 +160,22 @@ defmodule MCPheonix.MCP.Features.Resources do
   defp get_resource_actions(resource_module) do
     # Get actions defined on the resource
     primary_actions = resource_module.__primary_actions__()
-    other_actions = resource_module.__actions__() -- primary_actions
+    other_actions = resource_module.__actions__()
     
     # Format actions for MCP
-    Enum.map(primary_actions ++ other_actions, fn {action_name, action} ->
+    (Enum.map(primary_actions, fn {action_name, action} ->
       %{
         name: Atom.to_string(action_name),
         description: get_action_description(action_name, action),
         parameters: get_action_parameters(action)
       }
-    end)
+    end) ++ Enum.map(other_actions, fn {action_name, action} ->
+      %{
+        name: Atom.to_string(action_name),
+        description: get_action_description(action_name, action),
+        parameters: get_action_parameters(action)
+      }
+    end))
   end
 
   defp get_action_description(action_name, _action) do
@@ -218,19 +201,6 @@ defmodule MCPheonix.MCP.Features.Resources do
     action_arguments = action.arguments || []
     accepted_attributes = action.accept || []
     
-    # Add ID parameter for read/update/destroy actions
-    id_param = case action.name do
-      name when name in [:read, :update, :destroy] ->
-        [%{
-          name: "id",
-          type: "string",
-          description: "ID of the record",
-          required: true
-        }]
-      _ ->
-        []
-    end
-    
     # Convert arguments to parameters
     arg_params = Enum.map(action_arguments, fn {arg_name, arg_config} ->
       %{
@@ -252,7 +222,7 @@ defmodule MCPheonix.MCP.Features.Resources do
     end)
     
     # Combine all parameters
-    id_param ++ arg_params ++ attr_params
+    arg_params ++ attr_params
   end
 
   defp get_type_string(type) do
@@ -267,17 +237,18 @@ defmodule MCPheonix.MCP.Features.Resources do
   end
 
   defp atomize_params(params) when is_map(params) do
-    Map.new(params, fn {k, v} ->
-      if is_binary(k) do
-        # Safely convert string keys to atoms
-        {String.to_existing_atom(k), atomize_params(v)}
+    Enum.reduce(params, %{}, fn {k, v}, acc ->
+      key = if is_binary(k) do
+        try do
+          String.to_existing_atom(k)
+        rescue
+          ArgumentError -> k
+        end
       else
-        {k, atomize_params(v)}
+        k
       end
-    rescue
-      ArgumentError ->
-        # If the atom doesn't exist, keep it as a string
-        {k, atomize_params(v)}
+      
+      Map.put(acc, key, atomize_params(v))
     end)
   end
   

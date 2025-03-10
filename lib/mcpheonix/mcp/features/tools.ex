@@ -52,7 +52,7 @@ defmodule MCPheonix.MCP.Features.Tools do
         ]
       },
       %{
-        name: "generate_image",
+        name: "generate",
         description: "Generate an image from a text prompt using the Flux server",
         parameters: [
           %{
@@ -170,7 +170,7 @@ defmodule MCPheonix.MCP.Features.Tools do
             }}
         end
         
-      "generate_image" ->
+      "generate" ->
         # Execute image generation via Flux server
         execute_flux_tool("generate", params)
         

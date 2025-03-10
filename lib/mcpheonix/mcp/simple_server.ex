@@ -199,32 +199,19 @@ defmodule MCPheonix.MCP.SimpleServer do
     }
   end
 
+  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "call_tool", "params" => params, "id" => id}) do
+    # Handle tool invocation using the 'call_tool' method
+    handle_tool_execution(params, id, "call_tool")
+  end
+
   defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "invoke_tool", "params" => params, "id" => id}) do
-    # Handle tool invocation
-    tool_name = params["tool"]
-    tool_params = params["parameters"]
-    
-    case Tools.execute_tool(tool_name, tool_params) do
-      {:ok, result} ->
-        %{
-          jsonrpc: "2.0",
-          id: id,
-          result: result
-        }
-        
-      {:error, reason} ->
-        %{
-          jsonrpc: "2.0",
-          id: id,
-          error: %{
-            code: -32000,
-            message: "Tool execution failed",
-            data: %{
-              reason: reason
-            }
-          }
-        }
-    end
+    # Handle tool invocation using 'invoke_tool' method
+    handle_tool_execution(params, id, "invoke_tool")
+  end
+
+  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "execute", "params" => params, "id" => id}) do
+    # Handle tool invocation using 'execute' method
+    handle_tool_execution(params, id, "execute")
   end
 
   defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => method, "id" => id}) do
@@ -255,5 +242,76 @@ defmodule MCPheonix.MCP.SimpleServer do
         }
       }
     }
+  end
+
+  defp handle_tool_execution(params, id, method_name) do
+    # Check if this is a server-specific tool invocation
+    if params["server_id"] do
+      server_id = params["server_id"]
+      
+      # Extract tool and parameters based on method name
+      {tool, tool_params} = case method_name do
+        "call_tool" -> 
+          # The call_tool method uses "name" and "arguments" 
+          {params["name"], params["arguments"]}
+        
+        _ -> 
+          # The invoke_tool and execute methods use "tool" and "parameters"
+          {params["tool"], params["parameters"]}
+      end
+      
+      Logger.debug("Delegating tool execution to server #{server_id}: #{tool} (method: #{method_name})")
+      
+      # Use the ServerManager to execute the tool on the specific server
+      # The ServerManager will use the correct "tools/call" method when forwarding to the server process
+      case MCPheonix.MCP.ServerManager.execute_tool(server_id, tool, tool_params) do
+        {:ok, result} ->
+          %{
+            jsonrpc: "2.0",
+            id: id,
+            result: result
+          }
+          
+        {:error, reason} ->
+          %{
+            jsonrpc: "2.0",
+            id: id,
+            error: %{
+              code: -32000,
+              message: "Tool execution failed",
+              data: %{
+                reason: reason
+              }
+            }
+          }
+      end
+    else
+      # Handle generic tool invocation (not server-specific)
+      # For these types of requests, the method name doesn't matter
+      tool_name = params["tool"]
+      tool_params = params["parameters"]
+      
+      case Tools.execute_tool(tool_name, tool_params) do
+        {:ok, result} ->
+          %{
+            jsonrpc: "2.0",
+            id: id,
+            result: result
+          }
+          
+        {:error, reason} ->
+          %{
+            jsonrpc: "2.0",
+            id: id, 
+            error: %{
+              code: -32000,
+              message: "Tool execution failed", 
+              data: %{
+                reason: reason
+              }
+            }
+          }
+      end
+    end
   end
 end 

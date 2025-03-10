@@ -1,0 +1,1 @@
+- Extensible MCP server architecture

@@ -1,0 +1,287 @@
+    warning: the following clause will never match:
+
+        {:error, reason} = error
+
+    because it attempts to match on the result of:
+
+        make_request(
+          worker_url,
+          <<"/initialize/", String.Chars.to_string(object_id)::binary>>,
+          :post,
+          Jason.encode!(data)
+        )
+
+    which has type:
+
+        dynamic({:ok, %{body: binary(), status: integer()}})
+
+    typing violation found at:
+    │
+ 38 │       {:error, reason} = error ->
+    │                        ~
+    │
+    └─ lib/mcpheonix/cloud/durable_objects/client.ex:38:24: MCPheonix.Cloud.DurableObjects.Client.initialize/3
+
+    warning: the following clause will never match:
+
+        {:error, reason} = error
+
+    because it attempts to match on the result of:
+
+        make_request(worker_url, path, :post, body)
+
+    which has type:
+
+        dynamic({:ok, %{body: binary(), status: integer()}})
+
+    typing violation found at:
+    │
+ 77 │       {:error, reason} = error ->
+    │                        ~
+    │
+    └─ lib/mcpheonix/cloud/durable_objects/client.ex:77:24: MCPheonix.Cloud.DurableObjects.Client.call_method/4
+
+    warning: unused alias FluxServer
+    │
+  9 │   alias MCPheonix.MCP.FluxServer
+    │   ~
+    │
+    └─ lib/mcpheonix/mcp/features/tools.ex:9:3
+
+     warning: function get_tool_config/3 is unused
+     │
+ 183 │   defp get_tool_config(tools, server_id, tool_name) do
+     │        ~
+     │
+     └─ lib/mcpheonix/mcp/server_manager.ex:183:8: MCPheonix.MCP.ServerManager (module)
+
+20:19:00.731 [info] Event broker started
+20:19:00.731 [info] Resource registry started
+20:19:00.731 [debug] Subscribing to topic: mcp:notifications
+20:19:00.737 [info] Configured tools for server dart: ["create_doc", "create_folder", "create_space", "create_task", "delete_space", "get_dartboards", "get_default_space", "get_default_status", "get_folders", "update_task"]
+20:19:00.737 [info] Configured tools for server discord: ["send_message"]
+20:19:00.737 [info] Configured tools for server filesystem: ["list_files"]
+20:19:00.737 [info] Configured tools for server flux: ["generate", "img2img"]
+20:19:00.737 [info] Starting MCP server: dart
+20:19:00.738 [info] Starting MCP server process: dart
+20:19:00.740 [debug] Command: /opt/homebrew/bin/node, Args: ["/Users/speed/Documents/Cline/MCP/dart-mcp-server/build/index.js"], Env: %{"PATH" => "/Users/speed/Documents/Cline/MCP/dart-mcp-server/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "PYTHONUNBUFFERED" => "1", "VIRTUAL_ENV" => "/Users/speed/Documents/Cline/MCP/dart-mcp-server/.venv"}
+20:19:00.740 [debug] Opening port with command: ~c"/opt/homebrew/bin/node /Users/speed/Documents/Cline/MCP/dart-mcp-server/build/index.js"
+20:19:00.742 [info] Starting MCP server: discord
+20:19:00.742 [info] Starting MCP server process: discord
+20:19:00.742 [debug] Command: node, Args: ["/Users/speed/discordmcp/build/index.js"], Env: %{"DISCORD_TOKEN" => "your_token_here"}
+20:19:00.742 [debug] Opening port with command: ~c"node /Users/speed/discordmcp/build/index.js"
+20:19:00.742 [info] Starting MCP server: filesystem
+20:19:00.742 [info] Starting MCP server process: filesystem
+20:19:00.743 [debug] Command: npx, Args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/speed/Documents", "/Users/speed/Pictures/flux-generations", "/Users/speed/Downloads"], Env: %{}
+20:19:00.743 [debug] Opening port with command: ~c"npx -y @modelcontextprotocol/server-filesystem /Users/speed/Documents /Users/speed/Pictures/flux-generations /Users/speed/Downloads"
+20:19:00.743 [info] Starting MCP server: flux
+20:19:00.743 [info] Starting MCP server process: flux
+20:19:00.743 [debug] Command: /opt/homebrew/bin/node, Args: ["/Users/speed/Documents/Cline/MCP/flux-server/build/index.js"], Env: %{"BFL_API_KEY" => "47932f45-9b3d-4283-b525-92cca5a54f28", "FLUX_PATH" => "/Users/speed/CascadeProjects/flux", "PATH" => "/Users/speed/CascadeProjects/flux/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "PYTHONPATH" => "/Users/speed/CascadeProjects/flux", "VIRTUAL_ENV" => "/Users/speed/CascadeProjects/flux/.venv"}
+20:19:00.743 [debug] Opening port with command: ~c"/opt/homebrew/bin/node /Users/speed/Documents/Cline/MCP/flux-server/build/index.js"
+20:19:00.777 [error] Failed to start Ranch listener MCPheonixWeb.Endpoint.HTTP in :ranch_tcp:listen(%{
+  num_acceptors: 100,
+  socket_opts: [
+    ip: {127,
+     0,
+     0,
+     1},
+    port: 4001
+  ],
+  max_connections: 16384
+}) for reason :eaddrinuse (address already in use)
+
+20:19:00.786 [notice] Application mcpheonix exited: MCPheonix.Application.start(:normal, []) returned an error: shutdown: failed to start child: MCPheonixWeb.Endpoint
+    ** (EXIT) shutdown: failed to start child: {:ranch_embedded_sup, MCPheonixWeb.Endpoint.HTTP}
+        ** (EXIT) shutdown: failed to start child: {:ranch_listener_sup, MCPheonixWeb.Endpoint.HTTP}
+            ** (EXIT) shutdown: failed to start child: :ranch_acceptors_sup
+                ** (EXIT) {:listen_error, MCPheonixWeb.Endpoint.HTTP, :eaddrinuse}
+20:19:00.786 [notice] Application httpoison exited: :stopped
+20:19:00.787 [notice] Application hackney exited: :stopped
+20:19:00.787 [notice] Application metrics exited: :stopped
+20:19:00.787 [notice] Application ssl_verify_fun exited: :stopped
+20:19:00.787 [notice] Application parse_trans exited: :stopped
+20:19:00.787 [notice] Application syntax_tools exited: :stopped
+20:19:00.787 [notice] Application certifi exited: :stopped
+20:19:00.787 [notice] Application mimerl exited: :stopped
+20:19:00.787 [notice] Application idna exited: :stopped
+20:19:00.787 [notice] Application unicode_util_compat exited: :stopped
+20:19:00.787 [notice] Application typed_struct exited: :stopped
+20:19:00.788 [notice] Application broadway exited: :stopped
+20:19:00.788 [notice] Application gen_stage exited: :stopped
+20:19:00.788 [notice] Application finch exited: :stopped
+20:19:00.789 [notice] Application nimble_pool exited: :stopped
+20:19:00.791 [notice] Application mint exited: :stopped
+20:19:00.791 [notice] Application hpax exited: :stopped
+20:19:00.791 [notice] Application ash_json_api exited: :stopped
+20:19:00.791 [notice] Application json_xema exited: :stopped
+20:19:00.791 [notice] Application xema exited: :stopped
+20:19:00.791 [notice] Application conv_case exited: :stopped
+20:19:00.791 [notice] Application ash_phoenix exited: :stopped
+20:19:00.791 [notice] Application ash exited: :stopped
+20:19:00.792 [notice] Application reactor exited: :stopped
+20:19:00.792 [notice] Application libgraph exited: :stopped
+20:19:00.792 [notice] Application earmark exited: :stopped
+20:19:00.792 [notice] Application stream_data exited: :stopped
+20:19:00.792 [notice] Application comparable exited: :stopped
+20:19:00.792 [notice] Application typable exited: :stopped
+20:19:00.792 [notice] Application picosat_elixir exited: :stopped
+20:19:00.792 [notice] Application ets exited: :stopped
+20:19:00.792 [notice] Application spark exited: :stopped
+20:19:00.792 [notice] Application sourceror exited: :stopped
+20:19:00.792 [notice] Application nimble_options exited: :stopped
+20:19:00.796 [notice] Application mnesia exited: :stopped
+20:19:00.796 [notice] Application uuid exited: :stopped
+20:19:00.797 [notice] Application gettext exited: :stopped
+20:19:00.797 [notice] Application expo exited: :stopped
+20:19:00.798 [notice] Application telemetry_poller exited: :stopped
+20:19:00.800 [notice] Application tailwind exited: :stopped
+20:19:00.801 [notice] Application esbuild exited: :stopped
+20:19:00.802 [notice] Application phoenix_live_dashboard exited: :stopped
+20:19:00.803 [notice] Application ecto exited: :stopped
+20:19:00.803 [notice] Application telemetry_metrics exited: :stopped
+Logger - error: {removed_failing_handler,'Elixir.Phoenix.LiveReloader.WebConsoleLogger'}
+20:19:00.804 [notice] Application phoenix_live_reload exited: :stopped
+20:19:00.805 [notice] Application file_system exited: :stopped
+20:19:00.809 [notice] Application phoenix_live_view exited: :stopped
+20:19:00.809 [notice] Application phoenix exited: :stopped
+20:19:00.809 [notice] Application jason exited: :stopped
+20:19:00.809 [notice] Application decimal exited: :stopped
+20:19:00.809 [notice] Application castore exited: :stopped
+20:19:00.809 [notice] Application websock_adapter exited: :stopped
+20:19:00.810 [notice] Application plug_cowboy exited: :stopped
+20:19:00.811 [notice] Application cowboy_telemetry exited: :stopped
+20:19:00.811 [notice] Application cowboy exited: :stopped
+20:19:00.813 [notice] Application ranch exited: :stopped
+Flux MCP server running on stdio
+20:19:00.813 [notice] Application cowlib exited: :stopped
+20:19:00.813 [notice] Application websock exited: :stopped
+20:19:00.813 [notice] Application phoenix_template exited: :stopped
+20:19:00.813 [notice] Application phoenix_html exited: :stopped
+20:19:00.805 [debug] [logger: :removed_failing_handler, handler: {Phoenix.LiveReloader.WebConsoleLogger, Phoenix.LiveReloader.WebConsoleLogger}, log_event: %{meta: %{error_logger: %{tag: :info_report, type: :std_info, report_cb: &:application_controller.format_log/1}, line: 2125, pid: #PID<0.45.0>, time: 1741569540804041, file: ~c"application_controller.erl", gl: #PID<0.69.0>, domain: [:otp], report_cb: &:application_controller.format_log/2, mfa: {:application_controller, :info_exited, 3}}, msg: {:string, ["Application ", "phoenix_live_reload", " exited: " | ":stopped"]}, level: :notice}, config: %{id: Phoenix.LiveReloader.WebConsoleLogger, module: Phoenix.LiveReloader.WebConsoleLogger, formatter: {Logger.Formatter, %Logger.Formatter{template: [:time, " ", :metadata, "[", :level, "] ", :message, "\n"], truncate: 8096, metadata: [:request_id], colors: %{error: :red, enabled: false, info: :normal, warning: :yellow, debug: :cyan, notice: :normal, alert: :red, critical: :red, emergency: :red}, utc_log?: false}}}, reason: {:error, %ArgumentError{message: "unknown registry: Phoenix.LiveReloader.WebConsoleLoggerRegistry"}, [{Registry, :key_info!, 1, [file: ~c"lib/registry.ex", line: 1457]}, {Registry, :dispatch, 4, [file: ~c"lib/registry.ex", line: 478]}]}]
+20:19:00.814 [notice] Application phoenix_pubsub exited: :stopped
+20:19:00.816 [notice] Application plug exited: :stopped
+[Debug] Running environment check with: /Users/speed/.pyenv/shims/python
+[Debug] Environment check command: import sys
+import os
+import traceback
+
+try:
+    print("[Debug] Python version:", sys.version, file=sys.stderr)
+    print("[Debug] Python executable:", sys.executable, file=sys.stderr)
+    print("[Debug] PYTHONPATH:", os.environ.get('PYTHONPATH'), file=sys.stderr)
+    print("[Debug] Current directory:", os.getcwd(), file=sys.stderr)
+    print("[Debug] DART_TOKEN:", os.environ.get('DART_TOKEN'), file=sys.stderr)
+
+    import dart
+    print("[Debug] dart package version:", getattr(dart, '__version__', 'unknown'), file=sys.stderr)
+
+    from dart import Dart
+    client = Dart()
+    print("[Debug] Successfully created Dart client", file=sys.stderr)
+except Exception as e:
+    print(f"[Debug] Environment check failed: {str(e)}", file=sys.stderr)
+    traceback.print_exc(file=sys.stderr)
+    sys.exit(1)
+20:19:00.817 [notice] Application telemetry exited: :stopped
+20:19:00.818 [notice] Application plug_crypto exited: :stopped
+20:19:00.818 [notice] Application mime exited: :stopped
+20:19:00.818 [notice] Application eex exited: :stopped
+node:events:495
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: write EPIPE
+    at afterWriteDispatched (node:internal/stream_base_commons:160:15)
+    at writeGeneric (node:internal/stream_base_commons:151:3)
+    at Socket._writeGeneric (node:net:962:11)
+    at Socket._write (node:net:974:8)
+    at writeOrBuffer (node:internal/streams/writable:392:12)
+    at _write (node:internal/streams/writable:333:10)
+    at Writable.write (node:internal/streams/writable:337:10)
+    at file:///Users/speed/Documents/Cline/MCP/flux-server/node_modules/@modelcontextprotocol/sdk/dist/server/stdio.js:60:30
+    at new Promise (<anonymous>)
+    at StdioServerTransport.send (file:///Users/speed/Documents/Cline/MCP/flux-server/node_modules/@modelcontextprotocol/sdk/dist/server/stdio.js:58:16)
+Emitted 'error' event on Socket instance at:
+    at emitErrorNT (node:internal/streams/destroy:151:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:116:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  errno: -32,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+
+Node.js v18.20.7
+20:19:00.819 [notice] Application runtime_tools exited: :stopped
+Dart MCP server running on stdio
+** (Mix) Could not start application mcpheonix: MCPheonix.Application.start(:normal, []) returned an error: shutdown: failed to start child: MCPheonixWeb.Endpoint
+    ** (EXIT) shutdown: failed to start child: {:ranch_embedded_sup, MCPheonixWeb.Endpoint.HTTP}
+        ** (EXIT) shutdown: failed to start child: {:ranch_listener_sup, MCPheonixWeb.Endpoint.HTTP}
+            ** (EXIT) shutdown: failed to start child: :ranch_acceptors_sup
+                ** (EXIT) {:listen_error, MCPheonixWeb.Endpoint.HTTP, :eaddrinuse}
+node:events:495
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: write EPIPE
+    at afterWriteDispatched (node:internal/stream_base_commons:160:15)
+    at writeGeneric (node:internal/stream_base_commons:151:3)
+    at Socket._writeGeneric (node:net:962:11)
+    at Socket._write (node:net:974:8)
+    at writeOrBuffer (node:internal/streams/writable:392:12)
+    at _write (node:internal/streams/writable:333:10)
+    at Writable.write (node:internal/streams/writable:337:10)
+    at file:///Users/speed/Documents/Cline/MCP/dart-mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js:69:30
+    at new Promise (<anonymous>)
+    at StdioServerTransport.send (file:///Users/speed/Documents/Cline/MCP/dart-mcp-server/node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js:67:16)
+Emitted 'error' event on Socket instance at:
+    at emitErrorNT (node:internal/streams/destroy:151:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:116:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  errno: -32,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+
+Node.js v18.20.7
+Fatal error in main(): Error [TokenInvalid]: An invalid token was provided.
+    at WebSocketManager.connect (/Users/speed/discordmcp/node_modules/discord.js/src/client/websocket/WebSocketManager.js:136:26)
+    at Client.login (/Users/speed/discordmcp/node_modules/discord.js/src/client/Client.js:228:21)
+    at main (file:///Users/speed/discordmcp/build/index.js:212:22)
+    at file:///Users/speed/discordmcp/build/index.js:223:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:337:24)
+    at async loadESM (node:internal/process/esm_loader:34:7)
+    at async handleMainPromise (node:internal/modules/run_main:106:12) {
+  code: 'TokenInvalid'
+}
+Secure MCP Filesystem Server running on stdio
+Allowed directories: [
+  '/users/speed/documents',
+  '/users/speed/pictures/flux-generations',
+  '/users/speed/downloads'
+]
+node:events:495
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: write EPIPE
+    at afterWriteDispatched (node:internal/stream_base_commons:160:15)
+    at writeGeneric (node:internal/stream_base_commons:151:3)
+    at Socket._writeGeneric (node:net:962:11)
+    at Socket._write (node:net:974:8)
+    at writeOrBuffer (node:internal/streams/writable:392:12)
+    at _write (node:internal/streams/writable:333:10)
+    at Writable.write (node:internal/streams/writable:337:10)
+    at file:///opt/homebrew/lib/node_modules/@modelcontextprotocol/server-filesystem/node_modules/@modelcontextprotocol/sdk/dist/server/stdio.js:60:30
+    at new Promise (<anonymous>)
+    at StdioServerTransport.send (file:///opt/homebrew/lib/node_modules/@modelcontextprotocol/server-filesystem/node_modules/@modelcontextprotocol/sdk/dist/server/stdio.js:58:16)
+Emitted 'error' event on Socket instance at:
+    at emitErrorNT (node:internal/streams/destroy:151:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:116:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  errno: -32,
+  code: 'EPIPE',
+  syscall: 'write'
+}
+
+Node.js v18.20.7

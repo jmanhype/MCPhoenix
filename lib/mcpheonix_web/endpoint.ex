@@ -35,6 +35,9 @@ defmodule MCPheonixWeb.Endpoint do
     plug Phoenix.CodeReloader
   end
 
+  # Handle MCP RPC requests before other processing
+  plug MCPheonixWeb.Plugs.MCPRpcPlug
+
   plug Phoenix.LiveDashboard.RequestLogger,
     param_key: "request_logger",
     cookie_key: "request_logger"
@@ -42,6 +45,7 @@ defmodule MCPheonixWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Standard parsers configuration
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],

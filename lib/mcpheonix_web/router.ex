@@ -15,21 +15,22 @@ defmodule MCPheonixWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout, html: {MCPheonixWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+  end
+  
+  # Custom pipeline for MCP RPC that skips parsers
+  pipeline :raw_json do
+    plug :accepts, ["json"]
   end
 
   # MCP-specific routes
   scope "/mcp", MCPheonixWeb do
-    pipe_through :api
-
     # SSE stream endpoint for server-to-client notifications
-    get "/stream", MCPController, :stream
+    get "/stream", MCPController, :stream, pipe_through: [:api]
     
-    # JSON-RPC endpoint for client-to-server requests
-    post "/rpc", MCPController, :rpc
+    # JSON-RPC endpoint for client-to-server requests - with minimal parsing
+    post "/rpc", MCPController, :rpc, pipe_through: [:raw_json]
   end
 
   # Other API routes
@@ -44,16 +45,5 @@ defmodule MCPheonixWeb.Router do
     pipe_through :browser
     
     get "/", PageController, :home
-    live_dashboard "/dashboard", metrics: MCPheonixWeb.Telemetry
-  end
-
-  # Enable LiveDashboard in development
-  if Application.compile_env(:mcpheonix, :dev_routes) do
-    import Phoenix.LiveDashboard.Router
-
-    scope "/dev" do
-      pipe_through :browser
-      live_dashboard "/dashboard", metrics: MCPheonixWeb.Telemetry
-    end
   end
 end 
