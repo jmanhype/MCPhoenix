@@ -36,17 +36,17 @@ defmodule MCPheonix.MixProject do
   defp deps do
     [
       # Phoenix and web
-      {:phoenix, "~> 1.7.7"},
+      {:phoenix, "~> 1.7.0"},
       {:phoenix_html, "~> 3.3"},
       {:phoenix_live_view, "~> 0.19.0"},
-      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_reload, "~> 1.4", only: :dev},
       {:phoenix_live_dashboard, "~> 0.8.0"},
       {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 0.20"},
-      {:jason, "~> 1.2"},      # JSON library
+      {:jason, "~> 1.4"},      # JSON library
       {:plug_cowboy, "~> 2.5"}, # HTTP server
       {:uuid, "~> 1.1"},       # For generating UUIDs
 
@@ -56,7 +56,7 @@ defmodule MCPheonix.MixProject do
       {:ash_json_api, "~> 0.31"},
 
       # HTTP client
-      {:finch, "~> 0.13"},
+      {:finch, "~> 0.16"},
       {:mint, "~> 1.5"},       # For WebSockets and SSE
 
       # Event system
@@ -75,7 +75,7 @@ defmodule MCPheonix.MixProject do
       {:httpoison, "~> 2.0"},
 
       # Cloudflare Durable Objects client
-      {:cloudflare_durable, path: "../cloudflare_durable_ex"}
+      {:cloudflare_durable, github: "jmanhype/cloudflare_durable_ex"}
     ]
   end
 
