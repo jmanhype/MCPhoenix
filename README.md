@@ -1,5 +1,4 @@
 # MCPheonix
-# MCPheonix
 
 A simplified implementation of the Model Context Protocol (MCP) server using Elixir's Phoenix Framework.
 
@@ -14,7 +13,9 @@ MCPheonix provides a server that implements the Model Context Protocol, allowing
 - Simple resource system
 - Event publish/subscribe mechanism
 - Basic tool invocation
+- Flux image generation integration
 - Dart task management integration
+- Extensible MCP server architecture
 
 ## Getting Started
 
