@@ -1,0 +1,65 @@
+Project Title: MCPheonix - A Compliant Model Context Protocol (MCP) Server
+
+Goal:
+Develop an Elixir/Phoenix-based server that faithfully implements the Model Context Protocol (MCP) specification, with a primary focus on the Streamable HTTP transport as defined in the latest relevant MCP documentation (e.g., version 2025-03-26 or as per ongoing discussions).
+
+Key Features and Requirements:
+
+1.  Unified MCP Endpoint (`/mcp`):
+    *   Implement a single HTTP endpoint at the path `/mcp`.
+    *   This endpoint MUST handle `GET` requests for server-to-client Server-Sent Event (SSE) streams.
+        *   On successful connection, the client MUST receive an initial "capabilities" message detailing available tools, resources, and prompts.
+        *   The SSE stream MUST support periodic "ping" events to maintain connection health and detect disconnections.
+        *   The server MUST be able to push arbitrary JSON-RPC notifications and/or requests to connected clients over this SSE stream.
+    *   This endpoint MUST handle `POST` requests for client-to-server JSON-RPC messages.
+        *   The server MUST support responding to a POST request with a single `application/json` JSON-RPC response object if the interaction is non-streaming.
+        *   Critically, if the client's `Accept` header includes `text/event-stream` and the nature of the request warrants a streamed response (e.g., a multi-turn conversation or a long-running process with intermediate updates), the server MUST be able to respond by initiating an SSE stream (`Content-Type: text/event-stream`) *over the same active POST connection*.
+            *   This SSE stream will carry JSON-RPC messages (responses to the initial client request, server-initiated requests/notifications related to the client's request, tool calls, content updates, etc.).
+            *   The server SHOULD close this SSE stream (and thus the POST connection) after all relevant JSON-RPC responses for the initial request(s) have been sent.
+        *   The server MUST correctly parse and respect the client's `Accept` header (e.g., `application/json, text/event-stream`) to determine the appropriate response type for POST requests.
+        *   The server MUST return HTTP status code 202 Accepted (with no body) for POST requests that consist solely of JSON-RPC responses or notifications from the client.
+
+2.  Core MCP Message Handling:
+    *   Implement reliable parsing and validation of incoming JSON-RPC requests, responses, and notifications according to the JSON-RPC 2.0 specification.
+    *   Maintain robust internal logic for processing these messages (e.g., through modules like `MCPheonix.MCP.Connection` and `MCPheonix.MCP.SimpleServer`, to be refactored or enhanced as needed for the new unified endpoint and streaming POST behavior).
+    *   Provide the capability to dispatch tasks or calls to backend services or tools, even if these are initially simulated for testing core protocol compliance.
+
+3.  Server-Sent Event (SSE) Notification System:
+    *   Ensure a robust internal mechanism (e.g., within `MCPheonix.MCP.SimpleServer` or an equivalent GenServer-based architecture) allows different parts of the application to trigger notifications.
+    *   These notifications must be correctly relayed through the appropriate channel:
+        *   The `GET /mcp` SSE stream for general, unsolicited server-to-client messages.
+        *   The streaming `POST /mcp` response for messages related to a specific client request.
+    *   Implement and maintain correct PID (Process ID) management for accurately targeting specific client connections for message delivery.
+
+4.  Basic Tooling and Capabilities Disclosure:
+    *   The server must accurately report its available tools, resources, and prompts via the "capabilities" event sent upon initial connection to an SSE stream.
+    *   Implement a basic, extendable set of tools (e.g., echo, timestamp, simple state manipulation) for testing and demonstration.
+
+5.  Logging, Debugging, and Observability:
+    *   Implement comprehensive, structured logging for all critical operations, including:
+        *   Client connection and disconnection events.
+        *   Reception and parsing of MCP messages.
+        *   Dispatch of messages to internal handlers.
+        *   Initiation and termination of SSE streams (both GET and POST-initiated).
+        *   Errors encountered during processing.
+    *   Logs should be detailed enough to facilitate debugging of protocol interactions and server behavior.
+
+6.  Configuration and Deployment:
+    *   Support for Elixir node naming and cookie-based clustering to enable multi-node operations, as utilized during development and testing phases.
+    *   Clear instructions or configuration options for setting the HTTP port.
+
+7.  Security Considerations (Adherence to MCP Specification):
+    *   (Future Iteration or as Prioritized) Implement validation of the `Origin` header on all incoming connections to mitigate DNS rebinding attacks.
+    *   (Future Iteration or as Prioritized) Ensure the server binds only to localhost (127.0.0.1) by default for local development, configurable for deployment.
+    *   (Future Iteration or as Prioritized) Plan for and implement a proper authentication mechanism for all client connections.
+
+Target MCP Specification Version:
+Streamable HTTP transport as detailed in the MCP specification (e.g., version 2025-03-26 or the most current version referenced during development).
+
+Non-Goals for Initial Milestones (unless explicitly reprioritized):
+*   Advanced, stateful session management features beyond unique client ID tracking per connection.
+*   Full implementation of all optional MCP features such as message resumability (`Last-Event-ID`), complex capability negotiation beyond initial disclosure, or elaborate error recovery mechanisms, unless required for core streamable POST functionality.
+*   A dedicated user interface or frontend application; focus is on server-side protocol compliance.
+*   Support for other MCP transports (e.g., Stdio).
+
+This PRD aims to guide the development of a robust and compliant MCP server foundation in Elixir/Phoenix, prioritizing the correct implementation of the specified Streamable HTTP transport. 
