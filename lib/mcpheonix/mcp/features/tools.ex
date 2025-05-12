@@ -6,7 +6,7 @@ defmodule MCPheonix.MCP.Features.Tools do
   allowing AI models to invoke operations in the application.
   """
   require Logger
-  alias MCPheonix.MCP.FluxServer
+  # alias MCPheonix.MCP.FluxServer # This alias seems unused
 
   @doc """
   Lists all available tools that can be invoked through MCP.

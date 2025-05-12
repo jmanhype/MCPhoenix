@@ -24,7 +24,7 @@ defmodule MCPheonix.MixProject do
   def application do
     [
       mod: {MCPheonix.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :finch]
     ]
   end
 
@@ -58,6 +58,7 @@ defmodule MCPheonix.MixProject do
       # HTTP client
       {:finch, "~> 0.16"},
       {:mint, "~> 1.5"},       # For WebSockets and SSE
+      {:mint_web_socket, "~> 1.0"}, # Explicitly add MintWebSocket
 
       # Event system
       {:broadway, "~> 1.0"},   # For event processing pipelines
@@ -72,7 +73,6 @@ defmodule MCPheonix.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false},
       {:mix_test_watch, "~> 1.1", only: [:dev, :test], runtime: false},
-      {:httpoison, "~> 2.0"},
 
       # Cloudflare Durable Objects client
       {:cloudflare_durable, github: "jmanhype/cloudflare_durable_ex"}

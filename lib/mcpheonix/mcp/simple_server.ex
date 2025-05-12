@@ -77,21 +77,24 @@ defmodule MCPheonix.MCP.SimpleServer do
   end
 
   @impl true
-  def handle_call({:handle_request, client_id, request}, _from, state) do
-    Logger.debug("Handling MCP request from #{client_id}: #{inspect(request)}")
+  def handle_call({:handle_request, client_id, request_struct}, _from, state) do
+    # request_struct is MCPheonix.MCP.JsonRpcProtocol.Request.t()
+    Logger.debug("Handling MCP request from #{client_id}: #{inspect(request_struct)}")
     
-    # Process the JSON-RPC request
-    response = process_request(client_id, request)
+    # Process the JSON-RPC request using the new internal function
+    response_tuple = process_request_internal(client_id, request_struct.method, request_struct.params)
     
-    # Publish request event to the event system
-    Broker.publish("mcp:requests", %{
-      client_id: client_id,
-      request: request,
-      response: response,
-      timestamp: DateTime.utc_now()
-    })
+    # Publish request event to the event system (optional, consider if this is still needed here)
+    # If publishing, we might need to adapt what's being published if response_tuple is not the full JSON response.
+    # For now, let's assume the Connection module will handle logging the full exchange if needed.
+    # Broker.publish("mcp:requests", %{
+    #   client_id: client_id,
+    #   request: request_struct, # This is the Request struct
+    #   response_payload: response_tuple, # This is {:ok, data} or {:error, error_map}
+    #   timestamp: DateTime.utc_now()
+    # })
     
-    {:reply, response, state}
+    {:reply, response_tuple, state}
   end
 
   @impl true
@@ -107,7 +110,7 @@ defmodule MCPheonix.MCP.SimpleServer do
   @impl true
   def handle_cast({:notify_client, client_id, notification}, state) do
     Logger.debug("Attempting to send notification to client #{client_id}: #{inspect(notification)}")
-
+    
     # Retrieve the client's data, which includes the pid, from state.clients
     client_data = Map.get(state.clients, client_id)
 
@@ -115,9 +118,9 @@ defmodule MCPheonix.MCP.SimpleServer do
       send(client_data.pid, {:send_event, "notification", notification})
       Logger.info("Successfully sent notification to client #{client_id} (pid: #{inspect(client_data.pid)})")
     else
-      Logger.warn("Could not find pid for client_id #{client_id}. Notification not sent. Client data: #{inspect(client_data)}")
+      Logger.warning("Could not find pid for client_id #{client_id}. Notification not sent. Client data: #{inspect(client_data)}", [])
     end
-
+    
     {:noreply, state}
   end
 
@@ -196,129 +199,128 @@ defmodule MCPheonix.MCP.SimpleServer do
     }
   end
 
-  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "initialize", "id" => id}) do
-    # Handle initialize request
-    %{
-      jsonrpc: "2.0",
-      id: id,
-      result: %{
-        capabilities: load_capabilities()
-      }
-    }
-  end
+  defp process_request_internal(client_id, method, params) do
+    Logger.debug("SimpleServer.process_request_internal: client=#{client_id}, method=#{method}, params=#{inspect(params)}")
+    case method do
+      "initialize" ->
+        {:ok, %{capabilities: load_capabilities()}}
 
-  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "call_tool", "params" => params, "id" => id}) do
-    # Handle tool invocation using the 'call_tool' method
-    handle_tool_execution(params, id, "call_tool")
-  end
-
-  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "invoke_tool", "params" => params, "id" => id}) do
-    # Handle tool invocation using 'invoke_tool' method
-    handle_tool_execution(params, id, "invoke_tool")
-  end
-
-  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => "execute", "params" => params, "id" => id}) do
-    # Handle tool invocation using 'execute' method
-    handle_tool_execution(params, id, "execute")
-  end
-
-  defp process_request(_client_id, %{"jsonrpc" => "2.0", "method" => method, "id" => id}) do
-    # Handle unknown method
-    %{
-      jsonrpc: "2.0",
-      id: id,
-      error: %{
-        code: -32601,
-        message: "Method not found",
-        data: %{
-          method: method
-        }
-      }
-    }
-  end
-
-  defp process_request(_client_id, invalid_request) do
-    # Handle invalid JSON-RPC request
-    %{
-      jsonrpc: "2.0",
-      id: nil,
-      error: %{
-        code: -32600,
-        message: "Invalid Request",
-        data: %{
-          received: invalid_request
-        }
-      }
-    }
-  end
-
-  defp handle_tool_execution(params, id, method_name) do
-    # Check if this is a server-specific tool invocation
-    if params["server_id"] do
-      server_id = params["server_id"]
+      "call_tool" ->
+        handle_tool_execution_internal(client_id, "call_tool", params)
       
-      # Extract tool and parameters based on method name
-      {tool, tool_params} = case method_name do
-        "call_tool" -> 
-          # The call_tool method uses "name" and "arguments" 
-          {params["name"], params["arguments"]}
+      "invoke_tool" ->
+        handle_tool_execution_internal(client_id, "invoke_tool", params)
+
+      "execute" ->
+        handle_tool_execution_internal(client_id, "execute", params)
         
-        _ -> 
-          # The invoke_tool and execute methods use "tool" and "parameters"
-          {params["tool"], params["parameters"]}
+      # Example: A method specific to SimpleServer, not a tool
+      # "simple_server_echo" ->
+      #   if Map.has_key?(params, "message") do
+      #     {:ok, %{echo_response: params["message"]}}
+      #   else
+      #     {:error, %{code: -32602, message: "Invalid params", data: %{reason: "Missing 'message' for simple_server_echo"}}}
+      #   end
+
+      _unknown_method ->
+        Logger.warning("Method not found in SimpleServer: #{method}", [])
+        {:error, %{code: -32601, message: "Method not found", data: %{method: method}}}
+    end
+  end
+
+  defp handle_tool_execution_internal(_client_id, original_method_name, params) do
+    Logger.debug("SimpleServer.handle_tool_execution_internal: method=#{original_method_name}, params=#{inspect(params)}")
+    
+    # Determine tool name and parameters based on the original method name
+    # This logic needs to be robust to missing keys.
+    {tool_name, tool_params_map, server_id} =
+      case original_method_name do
+        "call_tool" -> 
+          # call_tool expects "name" for tool_name and "arguments" for tool_params_map
+          {Map.get(params, "name"), Map.get(params, "arguments"), Map.get(params, "server_id")}
+        "invoke_tool" ->
+          # invoke_tool expects "tool" for tool_name and "parameters" for tool_params_map
+          {Map.get(params, "tool"), Map.get(params, "parameters"), Map.get(params, "server_id")}
+        "execute" ->
+          # execute also expects "tool" for tool_name and "parameters" for tool_params_map
+          {Map.get(params, "tool"), Map.get(params, "parameters"), Map.get(params, "server_id")}
+        _ ->
+          # Should not happen if called from process_request_internal correctly
+          Logger.error("Unknown original method name in handle_tool_execution_internal: #{original_method_name}")
+          {nil, nil, nil}
       end
-      
-      Logger.debug("Delegating tool execution to server #{server_id}: #{tool} (method: #{method_name})")
-      
-      # Use the ServerManager to execute the tool on the specific server
-      # The ServerManager will use the correct "tools/call" method when forwarding to the server process
-      case MCPheonix.MCP.ServerManager.execute_tool(server_id, tool, tool_params) do
+
+    # Validate essential parameters
+    cond do
+      is_nil(tool_name) ->
+        error_message = 
+          case original_method_name do
+            "call_tool" -> "Missing 'name' (tool name) in params for #{original_method_name}"
+            _ -> "Missing 'tool' (tool name) in params for #{original_method_name}"
+          end
+        Logger.warning(error_message <> ": #{inspect(params)}", [])
+        {:error, %{code: -32602, message: "Invalid params", data: %{reason: error_message}}}
+
+      # server_id is present, delegate to ServerManager
+      # Note: tool_params_map can be nil if "arguments" or "parameters" are not provided, which is valid.
+      !is_nil(server_id) ->
+        Logger.info("Delegating tool '#{tool_name}' to server '#{server_id}' via ServerManager (original method: #{original_method_name})")
+        case MCPheonix.MCP.ServerManager.execute_tool(server_id, tool_name, tool_params_map) do
         {:ok, result} ->
-          %{
-            jsonrpc: "2.0",
-            id: id,
-            result: result
-          }
-          
+            {:ok, result}
         {:error, reason} ->
-          %{
-            jsonrpc: "2.0",
-            id: id,
-            error: %{
-              code: -32000,
-              message: "Tool execution failed",
-              data: %{
-                reason: reason
-              }
-            }
-          }
+            Logger.error("Error from ServerManager.execute_tool for '#{tool_name}': #{inspect(reason)}", [])
+            _error_data = if is_map(reason) and Map.has_key?(reason, :code) and Map.has_key?(reason, :message), do: reason, else: %{reason: inspect(reason)}
+            # If reason is already a well-formed error map, use it, otherwise wrap it.
+            if is_map(reason) and Map.has_key?(reason, :code) and Map.has_key?(reason, :message) do
+              {:error, reason}
+            else
+              {:error, %{code: -32000, message: "Tool execution failed via ServerManager", data: %{original_reason: inspect(reason)}}}
       end
-    else
-      # Handle generic tool invocation (not server-specific)
-      # For these types of requests, the method name doesn't matter
-      tool_name = params["tool"]
-      tool_params = params["parameters"]
-      
-      case Tools.execute_tool(tool_name, tool_params) do
+        end
+
+      # server_id is NOT present, execute locally using Tools module
+      true ->
+        Logger.info("Executing tool '#{tool_name}' locally via Tools module (original method: #{original_method_name})")
+        try do
+          case Tools.execute_tool(tool_name, tool_params_map) do
         {:ok, result} ->
-          %{
-            jsonrpc: "2.0",
-            id: id,
-            result: result
-          }
-          
-        {:error, reason} ->
-          %{
-            jsonrpc: "2.0",
-            id: id, 
-            error: %{
-              code: -32000,
-              message: "Tool execution failed", 
-              data: %{
-                reason: reason
-              }
-            }
-          }
+              {:ok, result}
+            {:error, reason} ->
+              # Construct the error map that will be the second element of the returned {:error, error_map} tuple
+              error_payload = 
+                cond do
+                  is_map(reason) and Map.has_key?(reason, :code) and Map.has_key?(reason, :message) ->
+                    # If 'reason' is already a well-formed error {code, message, data}, use it
+                    reason
+                  true -> 
+                    # Otherwise, wrap it
+                    %{code: -32000, message: "Tool execution failed", data: %{tool: tool_name, original_reason: inspect(reason)}}
+                end
+              Logger.error("Tool '#{tool_name}' execution failed. Error payload: #{inspect(error_payload)}", [])
+              {:error, error_payload} # This is the value returned by this path of the 'case'
+          end
+        catch
+          :error, reason ->
+            stacktrace = __STACKTRACE__
+            Logger.error(
+              "Error during tool execution for '#{tool_name}'. Reason: #{inspect(reason)}. Stacktrace: #{inspect(stacktrace)}",
+              []
+            )
+            # This will be the `reason` in `{:error, reason}` tuple from the catch block
+            {:error, %{code: -32000, message: "Error during tool execution: #{reason}", data: %{tool: tool_name, params: tool_params_map, stacktrace: inspect(stacktrace)}}}
+
+          :exit, reason ->
+            stacktrace = __STACKTRACE__
+            Logger.error(
+              "Exit during tool execution for '#{tool_name}'. Reason: #{inspect(reason)}. Stacktrace: #{inspect(stacktrace)}",
+              []
+            )
+            {:error, %{code: -32000, message: "Exit during tool execution: #{reason}", data: %{tool: tool_name, params: tool_params_map, stacktrace: inspect(stacktrace)}}}
+        else
+          # The value from the 'do' block (result_from_do_block) is passed here
+          # if no exception was caught.
+          result_from_do_block -> result_from_do_block
       end
     end
   end

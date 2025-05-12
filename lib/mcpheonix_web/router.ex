@@ -10,6 +10,13 @@ defmodule MCPheonixWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug Plug.Parsers, parsers: [:json], json_decoder: Jason
+  end
+
+  pipeline :sse do
+    # This pipeline is for Server-Sent Events and does not parse JSON
+    # or strictly check accept headers for JSON.
+    # Add any other necessary plugs for SSE here if needed.
   end
 
   pipeline :browser do
@@ -26,11 +33,13 @@ defmodule MCPheonixWeb.Router do
 
   # MCP-specific routes
   scope "/mcp", MCPheonixWeb do
-    # SSE stream endpoint for server-to-client notifications
-    get "/stream", MCPController, :stream, pipe_through: [:api]
-    
-    # JSON-RPC endpoint for client-to-server requests - with minimal parsing
-    post "/rpc", MCPController, :rpc, pipe_through: [:raw_json]
+    # SSE stream uses its own pipeline
+    pipe_through :sse
+    get "/stream", MCPController, :stream # SSE stream for notifications
+
+    # RPC endpoint uses the :api pipeline
+    pipe_through :api
+    post "/", MCPController, :rpc      # JSON-RPC requests, changed from /rpc
   end
 
   # Other API routes
@@ -45,5 +54,13 @@ defmodule MCPheonixWeb.Router do
     pipe_through :browser
     
     get "/", PageController, :home
+  end
+
+  # Enable LiveDashboard in development
+  if Mix.env() == :dev do
+    scope "/dev" do
+      pipe_through :browser
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
   end
 end 
