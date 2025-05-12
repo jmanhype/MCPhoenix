@@ -100,18 +100,14 @@ defmodule MCPheonix.MCP.Connection do
 
   # Qodo Merge Pro Suggestion: Add catch-all error handler
   # The current implementation doesn't handle the case when process_message receives an unexpected type.
-  # Add a catch-all function head to handle any unexpected input and return an appropriate error response,
-  # preventing potential crashes when invalid data is passed.
+  # Add a catch-all function head to handle any unexpected input.
+  # For actual JSON-RPC Request structs, an error *response* would be formulated.
+  # For Notifications, or unexpected data that isn't a Request, we should aim for :noreply.
   def process_message(client_id, unexpected_input) do
-    Logger.error("Connection: Received unexpected input type for client '#{client_id}': #{inspect(unexpected_input)}")
-    # Note: Notifications should result in :noreply even on error, but if it's not a Request or Notification,
-    # and we don't know if it expected a response, returning an error might be safer than :noreply.
-    # However, the original RPC spec implies errors are only for Requests.
-    # This error will only be sent if the controller logic expects a tuple like {:error, Response.t()}.
-    # If the controller expects :noreply for anything not a Request, this error won't be sent.
-    # Given process_message is typed to return {:ok, Response.t()} | {:error, Response.t()} | :noreply,
-    # returning an error structure seems appropriate here.
-    {:error, Response.new_error(Error.invalid_request(%{reason: "Invalid message format or unknown message type"}), nil)}
+    Logger.error("Connection: Received unexpected input type for client '#{client_id}': #{inspect(unexpected_input)}. This is not a recognized Request or Notification struct. Returning :noreply as per notification handling principles.")
+    # Since this catch-all implies it's neither a Request we can form an error response for,
+    # nor a known Notification struct, we treat it as something that doesn't expect a reply.
+    :noreply
   end
 
   # --- Private Helper Functions for RPC Handling ---

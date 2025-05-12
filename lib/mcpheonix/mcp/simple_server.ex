@@ -129,6 +129,11 @@ defmodule MCPheonix.MCP.SimpleServer do
         true -> "unknown reason (client_data: #{inspect(client_data)})"
       end
       Logger.warning("Could not send notification to client #{client_id}. Reason: #{reason}", [])
+      # If the client process is not alive, cast a message to unregister it.
+      if client_data && client_data.pid && !Process.alive?(client_data.pid) do
+        Logger.info("Casting :unregister_client for client #{client_id} as its process is no longer alive.")
+        GenServer.cast(__MODULE__, {:unregister_client, client_id})
+      end
     end
 
     {:noreply, state}
