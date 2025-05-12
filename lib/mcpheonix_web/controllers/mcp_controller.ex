@@ -141,6 +141,19 @@ defmodule MCPheonixWeb.MCPController do
             conn
         end
         
+      {:send_event, event, data} ->
+        Logger.info("Received direct :send_event for #{event}, forwarding to client.")
+        case send_sse_event(conn, event, data) do
+          {:ok, conn_after_send} ->
+            sse_loop(conn_after_send, client_id)
+          {:error, _reason} ->
+            # Connection closed, clean up
+            Connection.end_connection(client_id)
+            # If send_sse_event fails, conn hasn't changed.
+            # If it failed due to closed connection, returning conn is fine as the loop will exit.
+            conn
+        end
+
       other ->
         Logger.warning("Unexpected message in SSE loop: #{inspect(other)}")
         sse_loop(conn, client_id)
@@ -164,11 +177,16 @@ defmodule MCPheonixWeb.MCPController do
   defp send_sse_event(conn, event, data) do
     # Format the SSE event
     event_data = "event: #{event}\ndata: #{Jason.encode!(data)}\n\n"
+    Logger.debug("SSE: Attempting to send event '#{event}' with data: #{event_data}")
     
     # Send the event as a chunk
     case chunk(conn, event_data) do
-      {:ok, conn} -> {:ok, conn}
-      {:error, reason} -> {:error, reason}
+      {:ok, new_conn} -> 
+        Logger.debug("SSE: Chunk sent successfully for event '#{event}'.")
+        {:ok, new_conn}
+      {:error, reason} -> 
+        Logger.error("SSE: Failed to send chunk for event '#{event}'. Reason: #{inspect(reason)}")
+        {:error, reason}
     end
   end
   

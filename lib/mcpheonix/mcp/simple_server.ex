@@ -62,11 +62,13 @@ defmodule MCPheonix.MCP.SimpleServer do
   end
 
   @impl true
-  def handle_call({:register_client, client_id}, _from, state) do
-    Logger.info("Registering MCP client: #{client_id}")
+  def handle_call({:register_client, client_id}, from, state) do
+    actual_client_pid = elem(from, 0) # Extract the actual PID from the {pid, ref} tuple
+    Logger.info("Registering MCP client: #{client_id} with actual_pid: #{inspect(actual_client_pid)}")
     
-    # Add client to state
+    # Add client to state, including its actual pid
     updated_clients = Map.put(state.clients, client_id, %{
+      pid: actual_client_pid, # Store the client's actual process ID
       connected_at: DateTime.utc_now(),
       subscriptions: []
     })
@@ -104,12 +106,18 @@ defmodule MCPheonix.MCP.SimpleServer do
 
   @impl true
   def handle_cast({:notify_client, client_id, notification}, state) do
-    Logger.debug("Sending notification to client #{client_id}: #{inspect(notification)}")
-    
-    # In a real implementation, this would send the notification to the client's SSE stream
-    # For now, we'll just log it
-    Logger.info("Would send notification to client #{client_id}: #{inspect(notification)}")
-    
+    Logger.debug("Attempting to send notification to client #{client_id}: #{inspect(notification)}")
+
+    # Retrieve the client's data, which includes the pid, from state.clients
+    client_data = Map.get(state.clients, client_id)
+
+    if client_data && client_data.pid do
+      send(client_data.pid, {:send_event, "notification", notification})
+      Logger.info("Successfully sent notification to client #{client_id} (pid: #{inspect(client_data.pid)})")
+    else
+      Logger.warn("Could not find pid for client_id #{client_id}. Notification not sent. Client data: #{inspect(client_data)}")
+    end
+
     {:noreply, state}
   end
 
