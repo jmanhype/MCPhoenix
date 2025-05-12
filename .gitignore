@@ -31,10 +31,6 @@ mcpheonix-*.tar
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
 
-# In case you use Node.js/npm, you want to ignore these.
-npm-debug.log
-/assets/node_modules/
-
 # Environment variables
 .env
 .env.*
@@ -50,4 +46,42 @@ npm-debug.log
 .vscode/
 
 # IntelliJ/Rubymine/etc settings
-.idea/ 
+.idea/
+
+# Added by Claude Task Master
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+/node_modules/
+/assets/node_modules/
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+# Task files
+tasks.json
+tasks/
+
+# Cursor-specific (or similar tool) files
+.cursor/
+.roo/
+.roomodes
+.windsurfrules
+
+# OS specific (covered by .DS_Store generally, but can be expanded if needed)
+# Thumbs.db
+# ._*
+
+# Taskmaster generated files - .taskmasterconfig IS committed.
+# tasks.json and tasks/ ARE committed.
+# We DO NOT ignore tasks.json or tasks/ 
