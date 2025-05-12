@@ -110,17 +110,32 @@ defmodule MCPheonix.MCP.SimpleServer do
   @impl true
   def handle_cast({:notify_client, client_id, notification}, state) do
     Logger.debug("Attempting to send notification to client #{client_id}: #{inspect(notification)}")
-    
+
     # Retrieve the client's data, which includes the pid, from state.clients
     client_data = Map.get(state.clients, client_id)
 
-    if client_data && client_data.pid do
+    # Qodo Merge Pro Suggestion: Check process liveness
+    # The code sends a direct message to the client process but doesn't verify if the process is still alive.
+    # Add a Process.alive?/1 check before sending the message to prevent sending to a dead process,
+    # which could lead to unexpected behavior.
+    if client_data && client_data.pid && Process.alive?(client_data.pid) do
       send(client_data.pid, {:send_event, "notification", notification})
       Logger.info("Successfully sent notification to client #{client_id} (pid: #{inspect(client_data.pid)})")
     else
-      Logger.warning("Could not find pid for client_id #{client_id}. Notification not sent. Client data: #{inspect(client_data)}", [])
+      reason = cond do
+        !client_data -> "client data not found"
+        !client_data.pid -> "client pid not available"
+        client_data.pid && !Process.alive?(client_data.pid) -> "client process no longer alive"
+        true -> "unknown reason (client_data: #{inspect(client_data)})"
+      end
+      Logger.warning("Could not send notification to client #{client_id}. Reason: #{reason}", [])
+      # If the client process is not alive, cast a message to unregister it.
+      if client_data && client_data.pid && !Process.alive?(client_data.pid) do
+        Logger.info("Casting :unregister_client for client #{client_id} as its process is no longer alive.")
+        GenServer.cast(__MODULE__, {:unregister_client, client_id})
+      end
     end
-    
+
     {:noreply, state}
   end
 
