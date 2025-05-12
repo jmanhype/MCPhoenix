@@ -9,6 +9,8 @@ defmodule MCPheonixWeb.MCPController do
   use Phoenix.Controller, namespace: MCPheonixWeb
   require Logger
   alias MCPheonix.MCP.Connection
+  alias MCPheonix.MCP.JsonRpcProtocol
+  alias MCPheonix.MCP.JsonRpcProtocol.{Request, Notification, Response, Error}
   
   # Import Kernel for binary_part/2
   import Kernel, except: [to_string: 1]
@@ -63,64 +65,72 @@ defmodule MCPheonixWeb.MCPController do
       end
       
     # Read the request directly from the connection request
-    {:ok, raw_body, conn} = Plug.Conn.read_body(conn)
+    {:ok, raw_body, conn_after_read_body} = Plug.Conn.read_body(conn)
     
-    Logger.debug("Raw request body [#{byte_size(raw_body)} bytes]: #{inspect(raw_body)}")
+    Logger.debug("RPC: Raw request body [#{byte_size(raw_body)} bytes]: #{inspect(raw_body)}")
     
-    # Process the JSON-RPC request
-    response = case Jason.decode(raw_body) do
-      {:ok, request} ->
-        # Successfully parsed the JSON
-        Logger.debug("Parsed JSON-RPC request: #{inspect(request)}")
-        
-        # Process the request using the MCP Connection module
-        case Connection.process_message(client_id, raw_body) do
-          {:ok, response_json} -> Jason.decode!(response_json)
-          {:error, reason} -> 
-            %{
-              jsonrpc: "2.0",
-              id: request["id"],
-              error: %{
-                code: -32000,
-                message: "Internal error",
-                data: %{
-                  reason: reason
-                }
-              }
-            }
+    # Parse and validate the JSON-RPC message using the protocol module
+    case JsonRpcProtocol.parse_message(raw_body) do
+      {:ok, %Request{} = parsed_request} -> # It's a Request
+        Logger.debug("RPC: Parsed Request: #{inspect(parsed_request)}")
+        # Process the parsed request
+        # Connection.process_message will now take client_id and the parsed_struct
+        # and is expected to return {:ok, response_struct} or {:error, error_response_struct}
+        case Connection.process_message(client_id, parsed_request) do
+          {:ok, %Response{} = success_response} ->
+            Logger.debug("RPC: Sending success response: #{inspect(success_response)}")
+            conn_after_read_body
+            |> put_resp_header("x-mcp-client-id", client_id)
+            |> put_resp_content_type("application/json")
+            |> send_resp(200, Jason.encode!(success_response))
+
+          {:error, %Response{} = error_response} -> # Error during processing, already a Response struct
+            Logger.debug("RPC: Sending error response from processing: #{inspect(error_response)}")
+            conn_after_read_body
+            |> put_resp_header("x-mcp-client-id", client_id)
+            |> put_resp_content_type("application/json")
+            |> send_resp(200, Jason.encode!(error_response)) # Send JSON-RPC error with HTTP 200
+          
+          # Catch-all for unexpected returns from Connection.process_message for Requests
+          other_outcome -> 
+            Logger.error("RPC: Unexpected outcome from Connection.process_message for Request: #{inspect(other_outcome)}")
+            internal_error_response = Response.new_error(Error.internal_error("Server error processing request"), parsed_request.id)
+            conn_after_read_body
+            |> put_resp_header("x-mcp-client-id", client_id)
+            |> put_resp_content_type("application/json")
+            |> send_resp(200, Jason.encode!(internal_error_response))
         end
-        
-      {:error, error} ->
-        # JSON parsing error
-        Logger.error("JSON decode error: #{inspect(error)}")
-        
-        # Return a standard JSON-RPC error response
-        %{
-          jsonrpc: "2.0",
-          id: nil,
-          error: %{
-            code: -32700,
-            message: "Parse error",
-            data: %{
-              reason: "Invalid JSON",
-              details: inspect(error),
-              body_size: byte_size(raw_body),
-              body_preview: String.slice(raw_body, 0, 100),
-              first_bytes: if byte_size(raw_body) > 0 do
-                  Base.encode16(:binary.part(raw_body, 0, min(10, byte_size(raw_body))))
-                else
-                  ""
-                end
-            }
-          }
-        }
-    end
-    
-    # Return the response
-    conn
+
+      {:ok, %Notification{} = parsed_notification} -> # It's a Notification
+        Logger.debug("RPC: Parsed Notification: #{inspect(parsed_notification)}")
+        # Process the parsed notification
+        # Connection.process_message for notifications is expected to return :noreply.
+        # If it deviates or raises an error, higher-level error handling will catch it.
+        case Connection.process_message(client_id, parsed_notification) do
+          :noreply ->
+            Logger.debug("RPC: Notification processed, sending 204 No Content.")
+            conn_after_read_body
+            |> put_resp_header("x-mcp-client-id", client_id)
+            |> send_resp(204, "")
+          
+          # All other patterns are unexpected for notification processing based on Connection.process_message design
+          unexpected_outcome -> 
+            Logger.error("RPC: Unexpected outcome from Connection.process_message for Notification: #{inspect(unexpected_outcome)}. Sending 204 anyway as per typical notification handling.", [])
+            conn_after_read_body
+            |> put_resp_header("x-mcp-client-id", client_id)
+            |> send_resp(204, "")
+        end
+
+      {:error, %Error{} = error_from_parser} -> # Error from JsonRpcProtocol.parse_message
+        Logger.warning("RPC: Invalid JSON-RPC message: #{inspect(error_from_parser)}", [])
+        # The ID might not be determinable for parse errors. Defaulting to nil.
+        # For Invalid Request, an ID might have been part of the (malformed) request but parse_message doesn't return it with the error struct currently.
+        error_response = Response.new_error(error_from_parser, nil) 
+        conn_after_read_body
     |> put_resp_header("x-mcp-client-id", client_id)
     |> put_resp_content_type("application/json")
-    |> send_resp(200, Jason.encode!(response))
+        |> send_resp(200, Jason.encode!(error_response)) # Send JSON-RPC error with HTTP 200
+    end
   end
 
   # Private functions
@@ -153,7 +163,7 @@ defmodule MCPheonixWeb.MCPController do
             # If it failed due to closed connection, returning conn is fine as the loop will exit.
             conn
         end
-
+        
       other ->
         Logger.warning("Unexpected message in SSE loop: #{inspect(other)}")
         sse_loop(conn, client_id)

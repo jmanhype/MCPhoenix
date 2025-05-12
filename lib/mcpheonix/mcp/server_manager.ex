@@ -180,7 +180,7 @@ defmodule MCPheonix.MCP.ServerManager do
     end)
   end
   
-  defp get_tool_config(tools, server_id, tool_name) do
+  defp _get_tool_config(tools, server_id, tool_name) do
     case Map.get(tools, tool_name) do
       {^server_id, config} -> config
       _ -> nil

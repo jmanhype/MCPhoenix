@@ -112,7 +112,7 @@ defmodule MCPheonix.MCP.Server do
     case Registry.lookup(MCPheonix.MCP.ConnectionRegistry, client_id) do
       [{_pid, _}] ->
         # Send the notification to the client's connection process
-        MCPheonix.MCP.Connection.send_notification(client_id, notification)
+        MCPheonix.MCP.Connection.send_sse_event_to_client(client_id, "notification", notification)
         
       [] ->
         Logger.warning("Attempted to notify unknown client: #{client_id}")

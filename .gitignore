@@ -70,7 +70,7 @@ dev-debug.log
 # OS specific
 # Task files
 tasks.json
-tasks/
+tasks/ 
 
 # Cursor-specific (or similar tool) files
 .cursor/
