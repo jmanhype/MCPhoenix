@@ -98,6 +98,22 @@ defmodule MCPheonix.MCP.Connection do
     handle_rpc_notification(client_id, notification_struct)
   end
 
+  # Qodo Merge Pro Suggestion: Add catch-all error handler
+  # The current implementation doesn't handle the case when process_message receives an unexpected type.
+  # Add a catch-all function head to handle any unexpected input and return an appropriate error response,
+  # preventing potential crashes when invalid data is passed.
+  def process_message(client_id, unexpected_input) do
+    Logger.error("Connection: Received unexpected input type for client '#{client_id}': #{inspect(unexpected_input)}")
+    # Note: Notifications should result in :noreply even on error, but if it's not a Request or Notification,
+    # and we don't know if it expected a response, returning an error might be safer than :noreply.
+    # However, the original RPC spec implies errors are only for Requests.
+    # This error will only be sent if the controller logic expects a tuple like {:error, Response.t()}.
+    # If the controller expects :noreply for anything not a Request, this error won't be sent.
+    # Given process_message is typed to return {:ok, Response.t()} | {:error, Response.t()} | :noreply,
+    # returning an error structure seems appropriate here.
+    {:error, Response.new_error(Error.invalid_request(%{reason: "Invalid message format or unknown message type"}), nil)}
+  end
+
   # --- Private Helper Functions for RPC Handling ---
 
   defp handle_rpc_request(client_id, %Request{method: method, params: params, id: id}) do

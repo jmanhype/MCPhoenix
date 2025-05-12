@@ -112,13 +112,20 @@ defmodule MCPheonixWeb.MCPController do
             conn_after_read_body
             |> put_resp_header("x-mcp-client-id", client_id)
             |> send_resp(204, "")
-          
-          # All other patterns are unexpected for notification processing based on Connection.process_message design
-          unexpected_outcome -> 
-            Logger.error("RPC: Unexpected outcome from Connection.process_message for Notification: #{inspect(unexpected_outcome)}. Sending 204 anyway as per typical notification handling.", [])
+
+          # Qodo Merge Pro Suggestion: Proper error response handling
+          # The current handling of unexpected_outcome for notifications sends a 204 No Content.
+          # Instead, it should send a 500 Internal Server Error with a JSON body to provide more information about the failure.
+          unexpected_outcome ->
+            Logger.error("RPC: Unexpected outcome from Connection.process_message for Notification: #{inspect(unexpected_outcome)}. Sending 500 Internal Server Error.", [])
+            # Construct a proper JSON-RPC error response, even though notifications don't usually get one.
+            # The ID is nil because notifications don't have an ID.
+            error_payload = Response.new_error(Error.internal_error("Server error processing notification"), nil)
             conn_after_read_body
             |> put_resp_header("x-mcp-client-id", client_id)
-            |> send_resp(204, "")
+            |> put_resp_content_type("application/json") # Ensure content type is JSON for the error
+            |> put_status(500) # HTTP 500 Internal Server Error
+            |> json(error_payload) # Send the JSON error payload
         end
 
       {:error, %Error{} = error_from_parser} -> # Error from JsonRpcProtocol.parse_message
