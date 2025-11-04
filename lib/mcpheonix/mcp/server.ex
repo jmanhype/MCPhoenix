@@ -15,6 +15,7 @@ defmodule MCPheonix.MCP.Server do
   @doc """
   Starts the MCP server.
   """
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -22,6 +23,7 @@ defmodule MCPheonix.MCP.Server do
   @doc """
   Registers a new client connection.
   """
+  @spec register_client(String.t()) :: {:ok, map()} | {:error, term()}
   def register_client(client_id) do
     GenServer.call(__MODULE__, {:register_client, client_id})
   end
@@ -29,6 +31,7 @@ defmodule MCPheonix.MCP.Server do
   @doc """
   Unregisters a client connection.
   """
+  @spec unregister_client(String.t()) :: :ok
   def unregister_client(client_id) do
     GenServer.cast(__MODULE__, {:unregister_client, client_id})
   end
@@ -36,6 +39,7 @@ defmodule MCPheonix.MCP.Server do
   @doc """
   Handles an incoming JSON-RPC request from a client.
   """
+  @spec handle_request(String.t(), map()) :: map()
   def handle_request(client_id, request) do
     GenServer.call(__MODULE__, {:handle_request, client_id, request})
   end
@@ -43,6 +47,7 @@ defmodule MCPheonix.MCP.Server do
   @doc """
   Sends a notification to a client.
   """
+  @spec notify_client(String.t(), map()) :: :ok
   def notify_client(client_id, notification) do
     GenServer.cast(__MODULE__, {:notify_client, client_id, notification})
   end

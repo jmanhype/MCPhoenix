@@ -7,19 +7,20 @@ defmodule MCPheonix.MCP.Connection do
   """
   require Logger
   alias MCPheonix.MCP.{ServerManager, SimpleServer}
-  # alias MCPheonix.MCP.JsonRpcProtocol # This alias seems unused
   alias MCPheonix.MCP.JsonRpcProtocol.{Request, Notification, Response, Error}
 
   @doc """
   Starts a new connection for a client.
-  
+
   ## Parameters
     * `client_id` - The unique identifier for the client
     * `conn` - The Phoenix connection for the SSE stream
-  
+
   ## Returns
-    * `{:ok, conn}` - A connection that is ready to stream SSE events
+    * `{:ok, initial_data, conn}` - A connection that is ready to stream SSE events
+    * `{:error, reason, conn}` - Connection failed to start
   """
+  @spec start(String.t(), Plug.Conn.t()) :: {:ok, map(), Plug.Conn.t()} | {:error, term(), Plug.Conn.t()}
   def start(client_id, conn) do
     # Register the client with the MCP server
     case SimpleServer.register_client(client_id) do
@@ -45,10 +46,11 @@ defmodule MCPheonix.MCP.Connection do
 
   @doc """
   Ends a client connection.
-  
+
   ## Parameters
     * `client_id` - The unique identifier for the client
   """
+  @spec end_connection(String.t()) :: :ok
   def end_connection(client_id) do
     # Unregister from the registry
     Registry.unregister(MCPheonix.MCP.ConnectionRegistry, client_id)
@@ -65,12 +67,13 @@ defmodule MCPheonix.MCP.Connection do
   Sends a notification to a client via the SSE stream.
   This is for server-initiated notifications to a specific client's SSE stream,
   not for handling incoming JSON-RPC Notification objects.
-  
+
   ## Parameters
     * `client_id` - The unique identifier for the client
     * `event_name` - The name of the SSE event (e.g., "notification", "custom_event")
     * `data` - The data payload for the SSE event
   """
+  @spec send_sse_event_to_client(String.t(), String.t(), term()) :: :ok | {:error, :client_not_found}
   def send_sse_event_to_client(client_id, event_name, data) do
     case Registry.lookup(MCPheonix.MCP.ConnectionRegistry, client_id) do
       [{pid, _}] ->
