@@ -1,0 +1,82 @@
+name: Claude Code Self-Improve
+
+on:
+  schedule:
+    # Runs every Monday at 06:00 America/Chicago (approximately 12:00 UTC)
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Optional custom prompt for Claude'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  self-improve:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Self-Improvement
+        uses: anthropics/claude-code-action@v1
+        with:
+          prompt: |
+            ${{ github.event.inputs.prompt || 'You are Claude, an AI assistant helping with repository maintenance and improvement.
+
+            Please follow these steps carefully:
+
+            1. **Project Summary**: Read the codebase and provide a one-paragraph summary of what this project does, its main features, and its technology stack.
+
+            2. **Identify Missing Baseline Files**: Check for the presence and quality of:
+               - README.md with a clear quickstart section
+               - LICENSE file
+               - SECURITY.md for security policy
+               - CODEOWNERS file for code ownership
+               - CI/CD workflows (GitHub Actions)
+               - Code of Conduct
+               - Contributing guidelines
+
+            3. **Dependency and Build Analysis**:
+               - Check mix.exs for outdated or vulnerable dependencies
+               - Identify any build configuration issues
+               - Look for missing or incomplete test coverage setup
+               - Check for linting/formatting configuration (mix format, credo, dialyzer)
+
+            4. **Propose Safe Improvements**:
+               - Focus ONLY on documentation, CI/CD, and metadata improvements
+               - DO NOT modify public APIs or core functionality
+               - Suggest the smallest, safest changes that add value
+               - Prioritize: documentation clarity, CI reliability, developer experience
+
+            5. **Implementation**:
+               - Implement ONLY documentation, CI/CD, or metadata fixes
+               - Follow the guardrails in CLAUDE.md (if it exists)
+               - Create clear, well-documented changes
+               - Use conventional commit messages
+
+            6. **Pull Request**:
+               - Open a pull request with your changes
+               - Title: "chore: <brief description of improvements>"
+               - Description must include:
+                 * Summary of changes made
+                 * Rationale for each change
+                 * Receipt line: "Automated by Claude Code on [date]"
+               - Add appropriate labels (documentation, ci, chore)
+
+            IMPORTANT CONSTRAINTS:
+            - Only modify documentation, CI/CD workflows, and repository metadata
+            - Do not change application code unless fixing a critical security issue
+            - Keep changes minimal and focused
+            - Follow existing code style and conventions
+            - Respect all guidelines in CLAUDE.md' }}
+
+          claude_args: --max-turns 8
