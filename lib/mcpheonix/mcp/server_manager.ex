@@ -18,32 +18,35 @@ defmodule MCPheonix.MCP.ServerManager do
   
   @doc """
   Start a specific MCP server.
-  
+
   ## Parameters
     * `server_id` - The ID of the server to start
   """
+  @spec start_server(String.t()) :: :ok | {:error, String.t()}
   def start_server(server_id) do
     GenServer.call(__MODULE__, {:start_server, server_id})
   end
   
   @doc """
   Stop a specific MCP server.
-  
+
   ## Parameters
     * `server_id` - The ID of the server to stop
   """
+  @spec stop_server(String.t()) :: :ok | {:error, String.t()}
   def stop_server(server_id) do
     GenServer.call(__MODULE__, {:stop_server, server_id})
   end
   
   @doc """
   Execute a tool on a specific server.
-  
+
   ## Parameters
     * `server_id` - The ID of the server to execute the tool on
     * `tool` - The name of the tool to execute
     * `params` - The parameters for the tool
   """
+  @spec execute_tool(String.t(), String.t(), map() | nil) :: {:ok, term()} | {:error, term()}
   def execute_tool(server_id, tool, params) do
     GenServer.call(__MODULE__, {:execute_tool, server_id, tool, params}, 60_000)
   end
@@ -180,10 +183,4 @@ defmodule MCPheonix.MCP.ServerManager do
     end)
   end
   
-  defp _get_tool_config(tools, server_id, tool_name) do
-    case Map.get(tools, tool_name) do
-      {^server_id, config} -> config
-      _ -> nil
-    end
-  end
 end 
