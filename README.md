@@ -1,103 +1,88 @@
 # MCPheonix
 
-A simplified implementation of the Model Context Protocol (MCP) server using Elixir's Phoenix Framework.
+MCP (Model Context Protocol) server built on Elixir/Phoenix. Exposes resources and tools over SSE and JSON-RPC so LLM clients can interact with application data.
 
-## Overview
+Note: the project name is spelled "MCPheonix" throughout the codebase (not "Phoenix"). This is baked into module names and file paths.
 
-MCPheonix is an intelligent, self-healing, distributed AI event system using Model Context Protocol and Elixir's Phoenix Framework. It provides a server that implements the Model Context Protocol, allowing AI models to interact with your application data and functionality through a unified interface.
+## Status
 
-## Features
+v0.1.0. Runs locally. No production deployment evidence. Test coverage is minimal (1 Cloudflare test, 1 mock WebSocket helper). The Cloudflare Durable Objects integration referenced in docs requires a paid Cloudflare account and has no automated tests.
 
-- Server-Sent Events (SSE) stream for real-time notifications
-- JSON-RPC endpoint for client requests
-- Simple resource system
-- Event publish/subscribe mechanism
-- Basic tool invocation
-- Flux image generation integration
-- Dart task management integration
-- Extensible MCP server architecture
-- Self-healing distributed architecture via Cloudflare Durable Objects
-- Edge computing capabilities through Cloudflare Workers
+## What It Does
 
-## Self-Healing Distributed Architecture
+1. Starts a Phoenix web server on port 4001
+2. Exposes 2 MCP endpoints:
+   - `GET /mcp/stream` -- SSE stream for real-time notifications
+   - `POST /mcp/rpc` -- JSON-RPC 2.0 for tool invocation and resource queries
+3. Manages multiple external MCP servers defined in `priv/config/mcp_servers.json`
+4. Optionally integrates with Flux (image generation) and Dart (task management)
 
-MCPheonix implements a sophisticated self-healing system through its integration with Cloudflare Durable Objects and Workers, creating a distributed, resilient architecture that can withstand failures and ensure continuous operation.
+## Tech Stack
 
-### Key Components
+| Component | Technology |
+|---|---|
+| Language | Elixir 1.14+ / OTP 25+ |
+| Web | Phoenix 1.7, LiveView 0.19, Cowboy |
+| Data | Ash Framework 2.9 |
+| HTTP Client | Finch, Mint |
+| Protocol | JSON-RPC 2.0, Server-Sent Events |
+| Optional | Cloudflare Durable Objects, Flux CLI, Dart MCP |
 
-- **Durable Objects**: Stateful serverless components running on Cloudflare's global edge network that maintain consistency even across failures.
-- **Edge Distribution**: Critical application state is replicated across Cloudflare's global network, ensuring availability even during regional outages.
-- **Automatic Recovery**: If an instance becomes unavailable, the system automatically recreates it with consistent state from durable storage.
-- **Real-time Communication**: WebSocket support enables instant recovery coordination and state synchronization across the distributed system.
-- **Event-Driven Architecture**: Components react to state changes through a publish/subscribe model, allowing the system to self-heal and adapt to failures.
+## Project Layout
 
-For detailed information on the implementation, see the [Cloudflare Integration](docs/cloudflare_integration.md) documentation.
-
-## Getting Started
-
-### Prerequisites
-
-- Elixir 1.14 or higher
-- Erlang 25 or higher
-- Phoenix 1.7.0 or higher
-- Python 3.9+ (for Flux and Dart integration)
-- Node.js 18+ (for Dart MCP server)
-- Cloudflare account (for Durable Objects integration)
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone https://github.com/yourusername/mcpheonix.git
-cd mcpheonix
+```
+lib/mcpheonix/
+  mcp/
+    server.ex             # Core MCP server
+    server_manager.ex     # Multi-server lifecycle
+    server_process.ex     # Per-server GenServer
+    json_rpc_protocol.ex  # JSON-RPC 2.0 handling
+    features/
+      resources.ex        # Resource queries
+      tools.ex            # Tool invocation
+    flux_server.ex        # Flux image generation bridge
+    supervisor.ex
+  cloud/
+    durable_objects/       # Cloudflare DO client
+  events/
+    broker.ex             # PubSub event broker
+  resources/
+    message.ex, user.ex, registry.ex
+lib/mcpheonix_web/
+  controllers/            # MCP + page controllers
+  plugs/                  # RPC, raw body logging
+  router.ex
+config/
+  mcp_servers.example.json
 ```
 
-2. Install dependencies
+## Setup
+
 ```bash
+git clone https://github.com/jmanhype/MCPhoenix.git
+cd MCPhoenix
 mix deps.get
-```
-
-3. Configure the Cloudflare integration
-   - Create a Cloudflare Worker using the template in `cloudflare/durable-objects-worker.js`
-   - Deploy it to your Cloudflare account
-   - Set the environment variables:
-     - `CLOUDFLARE_WORKER_URL`: URL of your deployed worker
-     - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare account ID
-     - `CLOUDFLARE_API_TOKEN`: API token with Workers and DO permissions
-
-4. Configure the Flux integration (if using image generation)
-   - Set up the Flux CLI environment as described in the [Flux Integration](docs/flux_integration.md) section
-
-5. Configure the Dart integration (if using task management)
-   - Set up the Dart MCP server as described in the [Dart Integration](docs/dart_integration.md) section
-
-6. Start the server
-```bash
 mix phx.server
 ```
 
-The server will be available at http://localhost:4001.
+Server starts at http://localhost:4001.
 
-### Adding Custom MCP Servers
+### Adding MCP Servers
 
-MCPheonix is designed to work with multiple MCP servers. This system includes a flexible infrastructure for integrating custom MCP servers through:
+Edit `priv/config/mcp_servers.json`:
 
-1. **Simple JSON Configuration**: Define your server settings in `priv/config/mcp_servers.json`:
 ```json
 {
   "mcpServers": {
-    "your_server_id": {
+    "your_server": {
       "command": "/path/to/executable",
-      "args": ["arg1", "arg2"],
-      "env": {
-        "ENV_VAR1": "value1",
-        "ENV_VAR2": "value2"
-      },
+      "args": ["--flag"],
+      "env": { "API_KEY": "..." },
       "tools": {
-        "your_tool": {
-          "description": "Description of your tool",
+        "tool_name": {
+          "description": "What it does",
           "parameters": [
-            { "name": "param1", "type": "string", "description": "Parameter description" }
+            { "name": "input", "type": "string", "description": "..." }
           ]
         }
       }
@@ -106,20 +91,17 @@ MCPheonix is designed to work with multiple MCP servers. This system includes a 
 }
 ```
 
-2. **Automatic Server Management**: Servers are automatically loaded and managed during application startup.
+Servers start automatically on application boot.
 
-For comprehensive implementation details, including the Elixir architecture, server lifecycle management, and protocol handling, see the [Adding MCP Servers](docs/adding_mcp_servers.md) documentation.
+## Limitations
 
-## MCP Endpoints
+- The name typo ("Pheonix" vs "Phoenix") is permanent unless all modules are renamed.
+- Cloudflare Durable Objects integration is documented but untested and requires paid infrastructure.
+- No authentication on MCP endpoints.
+- Multiple README backup files in the repo (`README.head.tmp`, `README.md.backup`, `README.md.bak`) suggest repeated automated regeneration.
+- Flux and Dart integrations require separate Python/Node.js runtimes and are not tested in CI.
+- The Ash Framework integration appears scaffolded but not deeply used.
 
-- **SSE Stream**: `GET /mcp/stream`
-  - Establishes a Server-Sent Events stream for receiving real-time notifications
-  - Returns a client ID in the response headers
+## License
 
-- **JSON-RPC**: `POST /mcp/rpc`
-  - Accepts JSON-RPC 2.0 requests
-  - Client ID can be provided in the `x-mcp-client-id` header or will be generated if missing
-
-## Built-in Capabilities
-
-### Resources
+See `LICENSE`.
