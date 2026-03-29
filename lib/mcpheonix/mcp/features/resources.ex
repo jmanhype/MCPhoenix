@@ -12,10 +12,11 @@ defmodule MCPheonix.MCP.Features.Resources do
 
   @doc """
   Lists all available resources that can be accessed through MCP.
-  
+
   ## Returns
     * A list of resource definitions
   """
+  @spec list_resources() :: [map()]
   def list_resources do
     # Get all resources from the registry
     ResourceRegistry.entries()
@@ -33,16 +34,17 @@ defmodule MCPheonix.MCP.Features.Resources do
 
   @doc """
   Executes an action on a resource through MCP.
-  
+
   ## Parameters
     * `resource_name` - The name of the resource
     * `action_name` - The name of the action to execute
     * `params` - The parameters for the action
-  
+
   ## Returns
     * `{:ok, result}` - The action was executed successfully
     * `{:error, reason}` - The action failed
   """
+  @spec execute_action(String.t(), String.t(), map() | nil) :: {:ok, term()} | {:error, String.t()}
   def execute_action(resource_name, action_name, params) do
     # Find the resource module
     resource_module = ResourceRegistry.find_by_name(resource_name)
@@ -113,15 +115,16 @@ defmodule MCPheonix.MCP.Features.Resources do
 
   @doc """
   Subscribes to events from a specific resource.
-  
+
   ## Parameters
     * `client_id` - The ID of the MCP client
     * `resource_name` - The name of the resource to subscribe to
-  
+
   ## Returns
     * `:ok` - Successfully subscribed
     * `{:error, reason}` - Failed to subscribe
   """
+  @spec subscribe(String.t(), String.t()) :: :ok | {:error, String.t()}
   def subscribe(client_id, resource_name) do
     # Find the resource module
     resource_module = ResourceRegistry.find_by_name(resource_name)

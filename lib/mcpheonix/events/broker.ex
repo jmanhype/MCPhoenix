@@ -19,11 +19,12 @@ defmodule MCPheonix.Events.Broker do
 
   @doc """
   Publishes an event to a topic.
-  
+
   ## Parameters
     * `topic` - The topic to publish to
     * `data` - The event data to publish
   """
+  @spec publish(String.t(), term()) :: :ok
   def publish(topic, data) do
     Logger.debug("Publishing event to topic #{topic}: #{inspect(data)}")
     Phoenix.PubSub.broadcast(MCPheonix.PubSub, topic, {:event, topic, data})
@@ -32,10 +33,11 @@ defmodule MCPheonix.Events.Broker do
 
   @doc """
   Subscribes to a topic.
-  
+
   ## Parameters
     * `topic` - The topic to subscribe to
   """
+  @spec subscribe(String.t()) :: :ok
   def subscribe(topic) do
     Logger.debug("Subscribing to topic: #{topic}")
     Phoenix.PubSub.subscribe(MCPheonix.PubSub, topic)
@@ -44,10 +46,11 @@ defmodule MCPheonix.Events.Broker do
 
   @doc """
   Unsubscribes from a topic.
-  
+
   ## Parameters
     * `topic` - The topic to unsubscribe from
   """
+  @spec unsubscribe(String.t()) :: :ok
   def unsubscribe(topic) do
     Logger.debug("Unsubscribing from topic: #{topic}")
     Phoenix.PubSub.unsubscribe(MCPheonix.PubSub, topic)

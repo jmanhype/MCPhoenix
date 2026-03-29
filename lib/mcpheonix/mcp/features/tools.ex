@@ -6,14 +6,14 @@ defmodule MCPheonix.MCP.Features.Tools do
   allowing AI models to invoke operations in the application.
   """
   require Logger
-  # alias MCPheonix.MCP.FluxServer # This alias seems unused
 
   @doc """
   Lists all available tools that can be invoked through MCP.
-  
+
   ## Returns
     * A list of tool definitions
   """
+  @spec list_tools() :: [map()]
   def list_tools do
     [
       %{
@@ -116,15 +116,16 @@ defmodule MCPheonix.MCP.Features.Tools do
 
   @doc """
   Executes a tool through MCP.
-  
+
   ## Parameters
     * `tool_name` - The name of the tool to execute
     * `params` - The parameters for the tool
-  
+
   ## Returns
     * `{:ok, result}` - The tool was executed successfully
     * `{:error, reason}` - The tool failed
   """
+  @spec execute_tool(String.t(), map() | nil) :: {:ok, map()} | {:error, String.t()}
   def execute_tool(tool_name, params) do
     Logger.info("Executing tool: #{tool_name} with params: #{inspect(params)}")
     
